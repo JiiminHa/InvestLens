@@ -1,0 +1,58 @@
+import { LearningSession } from "../domain/types";
+import { nowISO } from "../domain/constants";
+
+export function createSeedSessions(): LearningSession[] {
+  return [
+    {
+      id: "sess_tesla_01",
+      userId: "demo_user",
+      companyId: "tesla",
+      marketScene: "Tesla는 최근 배송실적이 시장 기대를 소폭 하회했지만, 가격 인하로 마진 방어에 대한 논의가 붙은 장면이다.",
+      marketNumbers: "[seed] 과거 학습용 장면",
+      status: "completed",
+      startedAt: "2026-09-10T10:00:00Z",
+      endedAt: "2026-09-10T10:20:00Z",
+      coachLensUsedId: "expect_vs_actual",
+      lensName: "기대 vs 실제",
+      lensStatusAfter: "적용해봄",
+      decisionAction: "공부만 함",
+      judgment: "시장 기대가 실제보다 앞서 있다고 봤다. 지금 판단은 보류하고 추가 확인을 하고 싶다.",
+      referencedSessionIds: [],
+      createdAt: nowISO(),
+    },
+    {
+      id: "sess_vti_01",
+      userId: "demo_user",
+      companyId: "vti",
+      marketScene: "S&P 500 대비 미국 전체시장 ETF VTI의 분산 특성과 개별주식 집중 위험에 대해 대화한 장면이다.",
+      marketNumbers: "[seed] 과거 학습용 장면",
+      status: "completed",
+      startedAt: "2026-09-09T14:00:00Z",
+      endedAt: "2026-09-09T14:20:00Z",
+      coachLensUsedId: "concentration_vs_diversification",
+      lensName: "집중 노출 vs 분산 노출",
+      lensStatusAfter: "적용해봄",
+      decisionAction: "공부만 함",
+      judgment: "개별기업 집중보다 분산 노출을 우선하고 싶어서.",
+      referencedSessionIds: [],
+      createdAt: nowISO(),
+    },
+    {
+      id: "sess_samsung_01",
+      userId: "demo_user",
+      companyId: "samsung",
+      marketScene: "삼성전자 실적 발표 후 주가 움직임과 반도체 사이클에 대한 기대가 함께 이야기된 장면이다.",
+      marketNumbers: "[seed] 과거 학습용 장면",
+      status: "completed",
+      startedAt: "2026-09-08T09:30:00Z",
+      endedAt: "2026-09-08T09:55:00Z",
+      coachLensUsedId: "good_company_vs_good_stock",
+      lensName: "좋은 회사 vs 좋은 주식",
+      lensStatusAfter: "이해함",
+      decisionAction: "공부만 함",
+      judgment: "좋은 사업이지만 현재 가격에 기대가 얼마나 반영됐는지 추가 확인이 필요하다.",
+      referencedSessionIds: [],
+      createdAt: nowISO(),
+    },
+  ];
+}
