@@ -81,30 +81,59 @@ export async function completeLearning(
     throw new Error(`completeLearning: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
   }
 
-  const effectiveCoachSummaryCall = coachSummaryCall ?? callBeginnerStockCoachSummary;
-
-  const summaryResponse = await effectiveCoachSummaryCall(
-    {
-      session: existingSession,
-      pastLearningContext: pastContext,
-      marketFixture: fixture,
-    },
-    userJudgment,
-    userDecision
-  );
+  let summaryResponse;
+  try {
+    const effectiveCoachSummaryCall = coachSummaryCall ?? callBeginnerStockCoachSummary;
+    summaryResponse = await effectiveCoachSummaryCall(
+      {
+        session: existingSession,
+        pastLearningContext: pastContext,
+        marketFixture: fixture,
+      },
+      userJudgment,
+      userDecision
+    );
+  } catch (error) {
+    saveSession({
+      ...existingSession,
+      status: "failed",
+      endedAt: new Date().toISOString(),
+    });
+    throw error;
+  }
 
   const allowedPastSessionIds = new Set(pastContext.recentSessions.map((s) => s.sessionId));
-  const filteredRelatedPastLearning = summaryResponse.summary.relatedPastLearning.filter((r) =>
-    allowedPastSessionIds.has(r.sessionId)
+  const filteredRelatedPastLearning = summaryResponse.summary.relatedPastLearning.filter(
+    (r) => allowedPastSessionIds.has(r.sessionId)
   );
 
-  // 사용자 판단을 우선 반영
   const overriddenSummary: import("../domain/types").SessionSummary = {
     ...summaryResponse.summary,
     judgment: userJudgment,
     decisionAction: userDecision,
     relatedPastLearning: filteredRelatedPastLearning,
   };
+
+  const coachLensName = overriddenSummary.lensName;
+  const finalMessage =
+    "정리하면, 이번 " +
+    existingSession.companyId +
+    " 장면은 " +
+    fixture.scene +
+    "\n\n" +
+    "사용한 렌즈: " +
+    coachLensName +
+    "\n" +
+    "판단: " +
+    overriddenSummary.judgment +
+    "\n" +
+    "결정: " +
+    overriddenSummary.decisionAction +
+    "\n\n" +
+    "과거 학습에서 다룬 \"" +
+    coachLensName +
+    "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
+    "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.";
 
   const completed = completeSessionWithSummary(
     sessionId,
@@ -115,6 +144,6 @@ export async function completeLearning(
   return {
     session: completed,
     summary: overriddenSummary,
-    finalMessage: summaryResponse.finalMessage,
+    finalMessage,
   };
 }
