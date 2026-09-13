@@ -32,11 +32,13 @@ async function mockCoachForTest() {
   };
 }
 
-export async function mockCallBeginnerStockCoach(input: {
-  session: import("../domain/types").LearningSession;
-  pastLearningContext: import("../domain/types").PastLearningContext;
-  marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
-}): Promise<{ message: string; isQuestionTurn: boolean }> {
+export async function mockCallBeginnerStockCoach(
+  input: {
+    session: import("../domain/types").LearningSession;
+    pastLearningContext: import("../domain/types").PastLearningContext;
+    marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
+  }
+): Promise<{ message: string; isQuestionTurn: boolean }> {
   const { firstTurnMessage } = await mockCoachForTest();
   return { message: firstTurnMessage, isQuestionTurn: firstTurnMessage.includes("?") };
 }
@@ -52,6 +54,18 @@ export async function mockCallBeginnerStockCoachSummary(
 ): Promise<{ summary: SessionSummary; finalMessage: string }> {
   const { summary, finalMessage } = await mockCoachForTest();
   return { summary, finalMessage };
+}
+
+export async function mockCallBeginnerStockCoachSummaryThrow(
+  input: {
+    session: import("../domain/types").LearningSession;
+    pastLearningContext: import("../domain/types").PastLearningContext;
+    marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
+  },
+  _userJudgment: string,
+  _userDecision: string
+): Promise<{ summary: SessionSummary; finalMessage: string }> {
+  throw new Error("coach summary 호출 실패");
 }
 
 async function main() {
@@ -111,6 +125,50 @@ async function main() {
   console.log(`  lens: ${completionResult.session.lensName} (${completionResult.session.lensStatusAfter})`);
   console.log(`  decisionAction: ${completionResult.session.decisionAction}`);
   console.log(`  judgment: ${completionResult.session.judgment}`);
+  if (!completionResult.finalMessage.includes(userJudgment)) {
+    throw new Error("finalMessage에 사용자 판단이 포함되지 않음");
+  }
+  if (!completionResult.finalMessage.includes(userDecision)) {
+    throw new Error("finalMessage에 사용자 결정이 포함되지 않음");
+  }
+  console.log("finalMessage 포함 판단/결정 assertion 통과");
+  console.log(`  finalMessage 포함 판단: ${completionResult.finalMessage.includes(userJudgment)}`);
+  console.log(`  finalMessage 포함 decision: ${completionResult.finalMessage.includes(userDecision)}`);
+
+  console.log("\n=== 5. 요약 호출 실패 시 failed 저장 확인 ===");
+  const failedTurnSession = await startLearningTurn(
+    {
+      userId,
+      companyId,
+      marketScene: fixture.scene,
+      marketNumbers: fixture.numbers,
+      pastContext,
+      fixture,
+    },
+    mockCallBeginnerStockCoach
+  );
+  try {
+    await completeLearning(
+      failedTurnSession.session.id,
+      pastContext,
+      fixture,
+      userJudgment,
+      userDecision,
+      mockCallBeginnerStockCoachSummaryThrow
+    );
+    throw new Error(
+      "요약 호출 실패 케이스가 throw되지 않아 테스트 기준에 맞지 않음"
+    );
+  } catch (err) {
+    const failedSaved = getSessions().find((s) => s.id === failedTurnSession.session.id);
+    if (!failedSaved) throw new Error("요약 실패 세션이 저장되지 않음");
+    if (failedSaved.status !== "failed") throw new Error("요약 실패 세션 status가 failed가 아님");
+    if (!failedSaved.endedAt) throw new Error("요약 실패 세션 endedAt이 없음");
+    console.log("요약 호출 실패 시 failed 저장 확인 통과");
+    console.log(`  status: ${failedSaved.status}`);
+    console.log(`  endedAt: ${failedSaved.endedAt}`);
+    console.log(`  error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   console.log("\n=== 4. 재연결 확인 ===");
   const newPastContext = buildPastLearningContext(userId);
