@@ -73,7 +73,7 @@ export interface LearningSession {
   companyId: CompanyId;
   marketScene: string;
   marketNumbers: string;
-  status: "in_progress" | "completed";
+  status: "in_progress" | "completed" | "failed";
   startedAt: string;
   endedAt: string | null;
   // 종료 시점에 채워지는 필드 (nullable)
