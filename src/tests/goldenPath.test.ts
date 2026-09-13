@@ -2,7 +2,7 @@ import { startLearningTurn, completeLearning } from "../services/investLensServi
 import { buildPastLearningContext } from "../services/learningContextBuilder";
 import { createSeedSessions } from "../fixtures/seed";
 import { seedStore, getSessions, getLensStatesForUser } from "../storage/memoryStore";
-import { MARKET_SCENE_FIXTURES, type MarketSceneFixture } from "../fixtures/marketSceneFixtures";
+import { MARKET_SCENE_FIXTURES } from "../fixtures/marketSceneFixtures";
 import { SessionSummary } from "../domain/types";
 
 function assertDefined<T>(value: T | undefined, message: string): asserts value is T {
@@ -61,14 +61,17 @@ async function main() {
   console.log("과거 세션 수:", pastContext.recentSessions.length);
 
   console.log("\n=== 2. 학습 턴 시작 ===");
-  const turnResult = await startLearningTurn({
-    userId,
-    companyId,
-    marketScene: fixture.scene,
-    marketNumbers: fixture.numbers,
-    pastContext,
-    fixture,
-  });
+  const turnResult = await startLearningTurn(
+    {
+      userId,
+      companyId,
+      marketScene: fixture.scene,
+      marketNumbers: fixture.numbers,
+      pastContext,
+      fixture,
+    },
+    mockCallBeginnerStockCoach
+  );
   if (turnResult.session.status !== "in_progress") {
     throw new Error("세션 상태가 in_progress가 아님");
   }
@@ -84,7 +87,8 @@ async function main() {
     pastContext,
     fixture,
     userJudgment,
-    userDecision
+    userDecision,
+    mockCallBeginnerStockCoachSummary
   );
   if (completionResult.session.status !== "completed") {
     throw new Error("세션이 completed로 저장되지 않음");
@@ -114,7 +118,7 @@ async function main() {
     (e) => e.lensId === "expect_vs_actual"
   );
   if (!expectLensState || expectLensState.status !== "적용해봄") {
-    throw new Error("expect_vs_actual 렌즈 상태가 '적용해봄'으로 갱신되지 않음");
+    throw new Error("expect_vs_actual 렌즈 상태가 적용해봄으로 갱신되지 않음");
   }
 
   console.log("재연결 확인 완료: Tesla 세션 포함, NVIDIA completed 저장, 렌즈 상태 갱신");

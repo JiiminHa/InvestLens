@@ -2,11 +2,11 @@ import { LearningSession, SessionSummary, LensId, LensStatus, DecisionAction, Co
 import { getSessionById, saveSession, upsertLensState } from "../storage/memoryStore";
 import { nowISO } from "../domain/constants";
 
-export { getSessionById };
+export { getSessionById, saveSession };
 
 export interface CreateSessionInput {
   userId: string;
-  companyId: string;
+  companyId: CompanyId;
   market_scene: string;
   market_numbers: string;
 }
@@ -16,7 +16,7 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
   const session: LearningSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     userId: input.userId,
-    companyId: input.companyId as CompanyId,
+    companyId: input.companyId,
     marketScene: input.market_scene,
     marketNumbers: input.market_numbers,
     coachLensUsedId: null,
@@ -30,7 +30,6 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
     status: "in_progress",
     createdAt: now,
   };
-
   saveSession(session);
   return session;
 }
