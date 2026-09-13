@@ -34,7 +34,7 @@ export type CoachSummaryCall = typeof callBeginnerStockCoachSummary;
 
 export async function startLearningTurn(
   input: PreparedSessionInput,
-  coachCall: CoachTurnCall = callBeginnerStockCoach
+  coachCall?: CoachTurnCall
 ): Promise<LearningTurnResult> {
   const session = createLearningSession({
     userId: input.userId,
@@ -43,9 +43,11 @@ export async function startLearningTurn(
     market_numbers: input.marketNumbers,
   });
 
+  const effectiveCoachCall = coachCall ?? callBeginnerStockCoach;
+
   let turnResponse;
   try {
-    turnResponse = await coachCall({
+    turnResponse = await effectiveCoachCall({
       session,
       pastLearningContext: input.pastContext,
       marketFixture: input.fixture,
@@ -72,14 +74,16 @@ export async function completeLearning(
   fixture: MarketSceneFixture,
   userJudgment: string,
   userDecision: import("../domain/types").DecisionAction,
-  coachSummaryCall: CoachSummaryCall = callBeginnerStockCoachSummary
+  coachSummaryCall?: CoachSummaryCall
 ): Promise<LearningCompletionResult> {
   const existingSession = getSessionById(sessionId);
   if (!existingSession) {
     throw new Error(`completeLearning: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
   }
 
-  const summaryResponse = await coachSummaryCall(
+  const effectiveCoachSummaryCall = coachSummaryCall ?? callBeginnerStockCoachSummary;
+
+  const summaryResponse = await effectiveCoachSummaryCall(
     {
       session: existingSession,
       pastLearningContext: pastContext,

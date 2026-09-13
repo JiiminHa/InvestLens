@@ -32,13 +32,21 @@ async function mockCoachForTest() {
   };
 }
 
-export async function mockCallBeginnerStockCoach(input: Parameters<typeof startLearningTurn>[0]): Promise<{ message: string; isQuestionTurn: boolean }> {
+export async function mockCallBeginnerStockCoach(input: {
+  session: import("../domain/types").LearningSession;
+  pastLearningContext: import("../domain/types").PastLearningContext;
+  marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
+}): Promise<{ message: string; isQuestionTurn: boolean }> {
   const { firstTurnMessage } = await mockCoachForTest();
   return { message: firstTurnMessage, isQuestionTurn: firstTurnMessage.includes("?") };
 }
 
 export async function mockCallBeginnerStockCoachSummary(
-  _input: Parameters<typeof completeLearning>[0],
+  input: {
+    session: import("../domain/types").LearningSession;
+    pastLearningContext: import("../domain/types").PastLearningContext;
+    marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
+  },
   _userJudgment: string,
   _userDecision: string
 ): Promise<{ summary: SessionSummary; finalMessage: string }> {
