@@ -2,6 +2,11 @@ import {
   PastLearningContext,
   PastSessionSummary,
   LearningSession,
+  LensId,
+  LensStatus,
+  CompanyId,
+  CandidateStatus,
+  DecisionAction,
 } from "../domain/types";
 import {
   getSessions,
@@ -23,17 +28,26 @@ export function buildPastLearningContext(userId: string): PastLearningContext {
     sessionId: s.id,
     companyId: s.companyId,
     companyName: companyName(s.companyId),
-    coachLensUsedId: s.coachLensUsedId as any,
+    coachLensUsedId: s.coachLensUsedId ?? "expect_vs_actual",
     lensName: s.lensName ?? "",
     lensStatus: s.lensStatusAfter ?? "처음_봄",
-    decisionAction: s.decisionAction ?? ("공부만 함" as any),
+    decisionAction: s.decisionAction ?? "공부만 함",
     judgment: s.judgment ?? "",
   }));
 
   return {
     userId,
     recentSessions,
-    lensStates: getLensStatesForUser(userId),
-    candidateStates: getCandidateStatesForUser(userId),
+    lensStates: getLensStatesForUser(userId).map((e) => ({
+      lensId: e.lensId as LensId,
+      status: e.status,
+      lastSeenAt: e.lastSeenAt,
+    })),
+    candidateStates: getCandidateStatesForUser(userId).map((e) => ({
+      companyId: e.companyId as CompanyId,
+      status: e.status,
+      reason: e.reason,
+      updatedAt: e.updatedAt,
+    })),
   };
 }

@@ -1,6 +1,8 @@
-import { LearningSession, SessionSummary, LensId, LensStatus, DecisionAction } from "../domain/types";
+import { LearningSession, SessionSummary, LensId, LensStatus, DecisionAction, CompanyId } from "../domain/types";
 import { getSessionById, saveSession, upsertLensState } from "../storage/memoryStore";
 import { nowISO } from "../domain/constants";
+
+export { getSessionById };
 
 export interface CreateSessionInput {
   userId: string;
@@ -14,9 +16,9 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
   const session: LearningSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     userId: input.userId,
-    companyId: input.companyId as any,
-    market_scene: input.market_scene,
-    market_numbers: input.market_numbers,
+    companyId: input.companyId as CompanyId,
+    marketScene: input.market_scene,
+    marketNumbers: input.market_numbers,
     coachLensUsedId: null,
     lensName: null,
     lensStatusAfter: null,

@@ -1,187 +1,134 @@
-import { createSeedSessions } from "../fixtures/seed";
-import {
-  seedStore,
-  getSessions,
-  getLensStatesForUser,
-  getCandidateStatesForUser,
-} from "../storage/memoryStore";
+import { startLearningTurn, completeLearning } from "../services/investLensService";
 import { buildPastLearningContext } from "../services/learningContextBuilder";
 import {
-  createLearningSession,
-  completeSessionWithSummary,
-} from "../services/sessionManager";
+  createSeedSessions,
+  type LearningSession,
+} from "../fixtures/seed";
+import { seedStore, getSessions, getLensStatesForUser } from "../storage/memoryStore";
 import { MARKET_SCENE_FIXTURES } from "../fixtures/marketSceneFixtures";
-import {
-  callBeginnerStockCoach,
-  callBeginnerStockCoachSummary,
-} from "../coach/coachService";
+import { companyName } from "../domain/constants";
+import { MarketSceneFixture } from "../fixtures/marketSceneFixtures";
+import { LearningSession as DomainLearningSession } from "../domain/types";
+
+function assertOk(condition: boolean, message: string): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function isQuestionTurn(message: string): boolean {
+  return message.includes("?");
+}
+
+async function mockCoachForTest() {
+  return {
+    firstTurnMessage:
+      "NVIDIA의 최근 장면에서 중요한 건 기대 vs 실제입니다. 시장 기대가 실제 실적·가이드라인보다 앞서 있을 수 있는지 생각해 보세요. 지금 이 장면에서 먼저 보이는 신호는 무엇인가요?",
+    summary: {
+      coachLensUsedId: "expect_vs_actual",
+      lensName: "기대 vs 실제",
+      lensStatusAfter: "적용해봄",
+      decisionAction: "공부만 함",
+      judgment: "시장 기대가 실제보다 앞서 있을 수 있다고 봤다.",
+      relatedPastLearning: [
+        {
+          sessionId: "sess_tesla_01",
+          lensName: "기대 vs 실제",
+          relevance: "Tesla 학습에서 배운 기대 vs 실제 렌즈를 NVIDIA 장면에도 적용 가능",
+        },
+      ],
+    },
+    finalMessage:
+      "정리하면, 이번 nvidia 장면은 NVIDIA는 최근 데이터센터와 AI 관련 매출 기대가 크게 강조되고, 주가도 그 기대를 반영해 움직인 장면이다. 실제 매출·가이드라인과 시장의 기대 수준이 얼마나 겹치는지, 혹은 차이가 나는지가 판단 포인트다.\n\n사용한 렌즈: 기대 vs 실제\n판단: 시장 기대가 실제보다 앞서 있을 수 있다고 봤다.\n결정: 공부만 함\n\n과거 학습에서 다룬 \"기대 vs 실제\"을 이번 장면에도 적용할 수 있는지 확인했다.\n다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.",
+  };
+}
+
+export async function mockCallBeginnerStockCoach(input: Parameters<typeof startLearningTurn>[0]): Promise<{ message: string; isQuestionTurn: boolean }> {
+  const { firstTurnMessage } = await mockCoachForTest();
+  return { message: firstTurnMessage, isQuestionTurn: isQuestionTurn(firstTurnMessage) };
+}
+
+export async function mockCallBeginnerStockCoachSummary(
+  input: Parameters<typeof completeLearning>[0],
+  userJudgment: string,
+  userDecision: string
+): Promise<{ summary: Parameters<typeof completeLearning>[1]["summary"]; finalMessage: string }> {
+  const { summary, finalMessage } = await mockCoachForTest();
+  return { summary, finalMessage };
+}
 
 async function main() {
   console.log("=== 1. seed load ===");
   const seedSessions = createSeedSessions();
   seedStore(seedSessions);
 
-  const sessions = getSessions();
-  console.log(`저장된 세션 수: ${sessions.length}`);
-  sessions.forEach((s) => {
-    console.log(
-      `  - [${s.status}] ${s.companyId} | lens=${s.lensName} | action=${s.decisionAction} | judgment=${s.judgment}`
-    );
+  const userId = "demo_user";
+  const companyId = "nvidia";
+
+  const fixture = MARKET_SCENE_FIXTURES.find((f) => f.companyId === companyId);
+  assertOk(!!fixture, `market scene fixture가 없습니다: ${companyId}`);
+
+  const pastContext = buildPastLearningContext(userId);
+  console.log("과거 세션 수:", pastContext.recentSessions.length);
+
+  console.log("\n=== 2. 학습 턴 시작 ===");
+  const turnResult = await startLearningTurn({
+    userId,
+    companyId,
+    marketScene: fixture.scene,
+    marketNumbers: fixture.numbers,
+    pastContext,
+    fixture,
   });
+  assertOk(turnResult.session.status === "in_progress", "세션 상태가 in_progress가 아님");
+  console.log(`세션: ${turnResult.session.id} (${turnResult.session.status})`);
+  console.log(`질문 포함: ${turnResult.isQuestionTurn}`);
 
-  console.log("\n=== 2. NVIDIA in_progress 세션 생성 (범용 structure) ===");
-  const nvidiaFixture = MARKET_SCENE_FIXTURES.find(
-    (f) => f.companyId === "nvidia"
-  )!;
-  const nvidiaSession = createLearningSession({
-    userId: "demo_user",
-    companyId: "nvidia",
-    market_scene: nvidiaFixture.scene,
-    market_numbers: nvidiaFixture.numbers,
-  });
-
-  console.log(`생성된 세션: ${nvidiaSession.id}`);
-  console.log(`  status: ${nvidiaSession.status}`);
-  console.log(`  coachLensUsedId: ${nvidiaSession.coachLensUsedId}`);
-  console.log(`  lensStatusAfter: ${nvidiaSession.lensStatusAfter}`);
-  console.log(`  decisionAction: ${nvidiaSession.decisionAction}`);
-  console.log(`  judgment: ${nvidiaSession.judgment}`);
-
-  console.log("\n=== 3. past_learning_context 생성 ===");
-  const pastContext = buildPastLearningContext("demo_user");
-  console.log(`최근 세션 수: ${pastContext.recentSessions.length}`);
-  pastContext.recentSessions.forEach((s) => {
-    console.log(
-      `  - [${s.sessionId}] ${s.companyName} | lens=${s.lensName}(${s.lensStatus}) | action=${s.decisionAction} | judgment=${s.judgment}`
-    );
-  });
-
-  console.log("\n=== 4. beginner-stock-coach 첫 턴 호출 ===");
-  const turnResponse = await callBeginnerStockCoach({
-    session: nvidiaSession,
-    pastLearningContext: pastContext,
-    marketFixture: nvidiaFixture,
-  });
-  console.log(`isQuestionTurn: ${turnResponse.isQuestionTurn}`);
-  console.log(`메시지:\n${turnResponse.message}`);
-
-  console.log("\n=== 5. coach 종료 요약 생성 (사용자 판단 가정) ===");
   const userJudgment =
-    "NVIDIA도 시장 기대가 실제보다 앞서 있을 수 있다고 봤다. 실제 실적과 가이드라인의 확인을 더 해보고 싶다.";
-  const userDecision:
-    | "투자함"
-    | "투자하지 않음"
-    | "공부만 함" = "공부만 함";
+    "NVIDIA도 시장 기대가 실제보다 앞서 있을 수 있다고 봤다.";
+  const userDecision: "투자함" | "투자하지 않음" | "공부만 함" = "공부만 함";
 
-  const summaryResponse = await callBeginnerStockCoachSummary(
-    {
-      session: nvidiaSession,
-      pastLearningContext: pastContext,
-      marketFixture: nvidiaFixture,
-    },
+  console.log("\n=== 3. 학습 종료 ===");
+  const completionResult = await completeLearning(
+    turnResult.session.id,
+    pastContext,
+    fixture,
     userJudgment,
     userDecision
   );
-
-  console.log(`최종 메시지:\n${summaryResponse.finalMessage}`);
-  console.log("\n종료 요약 요약:");
-  console.log(`  coachLensUsedId: ${summaryResponse.summary.coachLensUsedId}`);
-  console.log(`  lensName: ${summaryResponse.summary.lensName}`);
-  console.log(
-    `  lensStatusAfter: ${summaryResponse.summary.lensStatusAfter}`
+  assertOk(completionResult.session.status === "completed", "세션이 completed로 저장되지 않음");
+  assertOk(
+    completionResult.session.coachLensUsedId === "expect_vs_actual",
+    "coachLensUsedId가 expect_vs_actual이 아님"
   );
-  console.log(
-    `  decisionAction: ${summaryResponse.summary.decisionAction}`
+  assertOk(
+    completionResult.session.lensStatusAfter === "적용해봄",
+    "lensStatusAfter가 적용해봄이 아님"
   );
-  console.log(`  judgment: ${summaryResponse.summary.judgment}`);
-  console.log(
-    `  relatedPastLearning: ${JSON.stringify(summaryResponse.summary.relatedPastLearning)}`
-  );
+  console.log(`완료 세션: ${completionResult.session.id} → ${completionResult.session.status}`);
+  console.log(`  lens: ${completionResult.session.lensName} (${completionResult.session.lensStatusAfter})`);
+  console.log(`  decisionAction: ${completionResult.session.decisionAction}`);
+  console.log(`  judgment: ${completionResult.session.judgment}`);
 
-  console.log("\n=== 6. 세션 완료 저장 ===");
-  const completedSession = completeSessionWithSummary(
-    nvidiaSession.id,
-    summaryResponse.summary,
-    summaryResponse.summary.relatedPastLearning.map((r) => r.sessionId)
-  );
-
-  console.log(`완료된 세션 상태: ${completedSession.status}`);
-  console.log(`  coachLensUsedId: ${completedSession.coachLensUsedId}`);
-  console.log(`  lensName: ${completedSession.lensName}`);
-  console.log(`  lensStatusAfter: ${completedSession.lensStatusAfter}`);
-  console.log(`  decisionAction: ${completedSession.decisionAction}`);
-  console.log(`  judgment: ${completedSession.judgment}`);
-  console.log(`  referencedSessionIds: ${completedSession.referencedSessionIds}`);
-
-  console.log("\n=== 7. 최종 저장소 상태 ===");
-  console.log("세션 목록:");
-  getSessions().forEach((s) => {
-    console.log(
-      `  - [${s.status}] ${s.companyId} ${s.id} | lens=${s.lensName} | statusAfter=${s.lensStatusAfter} | action=${s.decisionAction} | judgment=${s.judgment}`
-    );
-  });
-
-  console.log("\nlensStates:");
-  getLensStatesForUser("demo_user").forEach((e) => {
-    console.log(
-      `  - ${e.lensId}: ${e.status} (lastSeenAt=${e.lastSeenAt})`
-    );
-  });
-
-  console.log("\ncandidateStates:");
-  const cands = getCandidateStatesForUser("demo_user");
-  if (cands.length === 0) {
-    console.log(
-      "  (없음 — candidateStatus는 코치 자동 결정 대상이 아니며, 현재 seed에도 NVIDIA 후보는 없음)"
-    );
-  } else {
-    cands.forEach((e) => {
-      console.log(`  - ${e.companyId}: ${e.status} (reason=${e.reason})`);
-    });
-  }
-
-  console.log("\n=== 검증 포인트 ===");
-  const teslaInContext = pastContext.recentSessions.find(
-    (s) => s.companyName === "Tesla"
-  );
-  console.log(
-    `[확인] Tesla 세션이 past_learning_context에 포함됨: ${!!teslaInContext}`
-  );
-  if (teslaInContext) {
-    console.log(
-      `  Tesla lensName: ${teslaInContext.lensName}, lensStatus: ${teslaInContext.lensStatus}`
-    );
-  }
+  console.log("\n=== 4. 재연결 확인 ===");
+  const newPastContext = buildPastLearningContext(userId);
+  const teslaInContext = newPastContext.recentSessions.find((s) => s.companyName === "Tesla");
+  assertOk(!!teslaInContext, "Tesla 세션이 과거 맥락에 포함되지 않음");
 
   const nvidiaCompleted = getSessions().find(
     (s) => s.companyId === "nvidia" && s.status === "completed"
   );
-  console.log(
-    `[확인] NVIDIA 세션이 completed로 저장됨: ${!!nvidiaCompleted}`
-  );
-  if (nvidiaCompleted) {
-    console.log(
-      `  NVIDIA lensName: ${nvidiaCompleted.lensName}, lensStatusAfter: ${nvidiaCompleted.lensStatusAfter}`
-    );
-  }
+  assertOk(!!nvidiaCompleted, "NVIDIA completed 세션이 저장되지 않음");
 
-  const expectLensState = getLensStatesForUser("demo_user").find(
+  const expectLensState = getLensStatesForUser(userId).find(
     (e) => e.lensId === "expect_vs_actual"
   );
-  console.log(
-    `[확인] expect_vs_actual 렌즈 상태가 '적용해봄'으로 갱신됨: ${
-      expectLensState?.status === "적용해봄" ? "YES" : "NO"
-    }`
+  assertOk(
+    expectLensState?.status === "적용해봄",
+    "expect_vs_actual 렌즈 상태가 '적용해봄'으로 갱신되지 않음"
   );
 
-  const nvidiaCandidate = getCandidateStatesForUser("demo_user").find(
-    (e) => e.companyId === "nvidia"
-  );
-  console.log(
-    `[확인] NVIDIA candidateStatus가 자동 생성되지 않음: ${
-      nvidiaCandidate ? "NO (생성됨 - 문제)" : "YES (미생성 - 정상)"
-    }`
-  );
+  console.log("재연결 확인 완료: Tesla 세션 포함, NVIDIA completed 저장, 렌즈 상태 갱신");
 }
 
 main().catch((err) => {
