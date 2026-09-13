@@ -1,4 +1,5 @@
 import { LearningSession } from "../domain/types";
+export type { LearningSession } from "../domain/types";
 import { nowISO } from "../domain/constants";
 
 export function createSeedSessions(): LearningSession[] {
