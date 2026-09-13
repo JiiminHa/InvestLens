@@ -1,6 +1,10 @@
 import { PastLearningContext } from "../domain/types";
 import { MarketSceneFixture } from "../fixtures/marketSceneFixtures";
-import { createLearningSession, completeSessionWithSummary } from "./sessionManager";
+import {
+  createLearningSession,
+  completeSessionWithSummary,
+  getSessionById,
+} from "./sessionManager";
 import { callBeginnerStockCoach, callBeginnerStockCoachSummary } from "../coach/coachService";
 
 export interface PreparedSessionInput {
@@ -52,12 +56,12 @@ export async function completeLearning(
   userJudgment: string,
   userDecision: import("../domain/types").DecisionAction
 ): Promise<LearningCompletionResult> {
-  const session = createLearningSession({
-    userId: "tmp",
-    companyId: fixture.companyId,
-    market_scene: fixture.scene,
-    market_numbers: fixture.numbers,
-  });
+  const existingSession = getSessionById(sessionId);
+  if (!existingSession) {
+    throw new Error(`completeLearning: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
+  }
+
+  const session = existingSession;
 
   const summaryResponse = await callBeginnerStockCoachSummary(
     {

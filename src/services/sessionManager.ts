@@ -2,6 +2,8 @@ import { LearningSession, SessionSummary, LensId, LensStatus, DecisionAction, Co
 import { getSessionById, saveSession, upsertLensState } from "../storage/memoryStore";
 import { nowISO } from "../domain/constants";
 
+export { getSessionById };
+
 export interface CreateSessionInput {
   userId: string;
   companyId: string;
