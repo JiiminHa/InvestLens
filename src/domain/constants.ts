@@ -1,4 +1,4 @@
-import { CompanyId, LensId } from "./types";
+import { CompanyId, CompanyInfo, LensId, LensInfo } from "./types";
 
 export const COMPANIES: Record<CompanyId, CompanyInfo> = {
   tesla: { id: "tesla", name: "Tesla" },

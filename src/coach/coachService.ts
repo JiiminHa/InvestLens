@@ -9,7 +9,7 @@ import {
   DecisionAction,
 } from "../domain/types";
 
-const SKILL_MD_PATH = "/Users/hajimin/Downloads/SKILL 3.md";
+const SKILL_MD_PATH = ".hermes/skills/beginner-stock-coach/SKILL.md";
 const SKILL_TEXT = fs.existsSync(SKILL_MD_PATH)
   ? fs.readFileSync(SKILL_MD_PATH, "utf-8")
   : "";
