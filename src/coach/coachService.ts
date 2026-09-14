@@ -132,8 +132,10 @@ export async function callBeginnerStockCoach(
     session: LearningSession;
     pastLearningContext: PastLearningContext;
     marketFixture: MarketSceneFixture;
+    userAnswer?: string;
+    conversationTurns?: Array<{ role: "coach" | "user"; content: string }>;
   }
-): Promise<{ message: string; isQuestionTurn: boolean }> {
+): Promise<{ message: string; isQuestionTurn: boolean; readyToComplete: boolean }> {
   const pastContextBlock = buildPastContextBlock(input.pastLearningContext);
   const system = buildFirstTurnSystemPrompt();
   const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock);

@@ -7,8 +7,8 @@ export { getSessionById, saveSession };
 export interface CreateSessionInput {
   userId: string;
   companyId: CompanyId;
-  market_scene: string;
-  market_numbers: string;
+  marketScene: string;
+  marketNumbers: string;
 }
 
 export function createLearningSession(input: CreateSessionInput): LearningSession {
@@ -17,8 +17,8 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     userId: input.userId,
     companyId: input.companyId,
-    marketScene: input.market_scene,
-    marketNumbers: input.market_numbers,
+    marketScene: input.marketScene,
+    marketNumbers: input.marketNumbers,
     coachLensUsedId: null,
     lensName: null,
     lensStatusAfter: null,
@@ -29,6 +29,8 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
     endedAt: null,
     status: "in_progress",
     createdAt: now,
+    turns: [],
+    phase: "question",
   };
   saveSession(session);
   return session;

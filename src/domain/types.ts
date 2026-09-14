@@ -76,6 +76,14 @@ export interface LearningSession {
   status: "in_progress" | "completed" | "failed";
   startedAt: string;
   endedAt: string | null;
+  // 대화 턴 누적
+  turns: Array<{
+    role: "coach" | "user";
+    content: string;
+    createdAt: string;
+  }>;
+  // 현재 진행 단계
+  phase: "question" | "feedback" | "ready_to_complete";
   // 종료 시점에 채워지는 필드 (nullable)
   coachLensUsedId: LensId | null;
   lensName: string | null;
