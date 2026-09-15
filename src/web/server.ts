@@ -1,4 +1,5 @@
 import http from "node:http";
+import "dotenv/config";
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,7 +50,7 @@ function serveFile(res: http.ServerResponse, path: string) {
     return;
   }
   let content = readFileSync(full, "utf8");
-  if (path === "index.html") {
+  if (path.endsWith("index.html")) {
     const isMock = !process.env.UPSTAGE_API_KEY;
     const envMarker = isMock
       ? `<script>window.__COACH_ENV="mock"</script>`

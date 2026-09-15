@@ -40,7 +40,7 @@ export async function mockCallBeginnerStockCoach(
   }
 ): Promise<{ message: string; isQuestionTurn: boolean; readyToComplete: boolean }> {
   const { firstTurnMessage } = await mockCoachForTest();
-  return { message: firstTurnMessage, isQuestionTurn: firstTurnMessage.includes("?"), readyToComplete: !firstTurnMessage.includes("?") };
+  return { message: firstTurnMessage, isQuestionTurn: true, readyToComplete: false };
 }
 
 export async function mockCallBeginnerStockCoachSummary(
