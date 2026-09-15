@@ -26,6 +26,7 @@ const UPSTAGE_BASE_URL =
 async function callSolar(
   messages: Array<{ role: "system" | "user"; content: string }>
 ): Promise<string> {
+  console.log("[coachService] callSolar 시작 — message 수:" + messages.length);
   if (!UPSTAGE_API_KEY) {
     throw new Error(
       "UPSTAGE_API_KEY not set. 실제 Skill 호출 불가."
@@ -45,12 +46,14 @@ async function callSolar(
     temperature: 0.7,
   });
 
+  console.log("[coachService] Solar API 호출 시작 — url:" + url);
   const res = await fetch(url, {
     method: "POST",
     headers,
     body,
   });
 
+  console.log("[coachService] Solar API 응답 도착 — status:" + res.status);
   if (!res.ok) {
     const bodyText = await res.text();
     throw new Error("Solar API error " + res.status + ": " + bodyText);
@@ -150,6 +153,7 @@ export async function callBeginnerStockCoach(
   return {
     message: content,
     isQuestionTurn: hasQuestion,
+    readyToComplete: !hasQuestion,
   };
 }
 

@@ -33,15 +33,6 @@ export interface LensInfo {
   name: string;
 }
 
-export interface MarketSceneFixture {
-  id: string;
-  companyId: CompanyId;
-  scene: string;
-  numbers: string;
-  verified: boolean;
-  note?: string;
-}
-
 // 과거 세션 요약 (coach에 전달할 맥락)
 export interface PastSessionSummary {
   sessionId: string;

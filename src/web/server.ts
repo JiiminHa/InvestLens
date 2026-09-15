@@ -12,7 +12,6 @@ import { companyName } from "../domain/constants";
 import { lensName } from "../domain/constants";
 import { DecisionAction } from "../domain/types";
 import { startLearningTurn, completeLearning, respond } from "../services/investLensService";
-import { mockCoachTurn, mockCoachSummary } from "./server-coach-mock";
 
 const WEB_ROOT = process.cwd();
 
@@ -49,8 +48,19 @@ function serveFile(res: http.ServerResponse, path: string) {
     notFound(res);
     return;
   }
+  let content = readFileSync(full, "utf8");
+  if (path === "index.html") {
+    const isMock = !process.env.UPSTAGE_API_KEY;
+    const envMarker = isMock
+      ? `<script>window.__COACH_ENV="mock"</script>`
+      : `<script>window.__COACH_ENV="real"</script>`;
+    content = content.replace(
+      /<script\b/,
+      envMarker + "<script",
+    );
+  }
   res.writeHead(200, { "Content-Type": guessMime(path) });
-  res.end(readFileSync(full, "utf8"));
+  res.end(content);
 }
 
 function guessMime(path: string): string {
@@ -151,6 +161,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    console.log(`[API] POST /api/learning/start 요청 시작 — userId=${userId} themeId=${themeId} companyId=${companyId}`);
     const companies = companiesForTheme(themeId);
     if (!companies.includes(companyId as any)) {
       badRequest(res, "해당 테마에 없는 companyId입니다");
@@ -175,6 +186,7 @@ const server = http.createServer(async (req, res) => {
 
     let turn;
     try {
+      console.log(`[API] startLearningTurn 호출 시작 — sessionId 생성 전`);
       turn = await startLearningTurn(input);
     } catch (error) {
       console.error("startLearningTurn error:", error);
@@ -216,6 +228,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    console.log(`[API] POST /api/learning/respond 요청 시작 — sessionId=${sessionId}`);
     let result;
     try {
       result = await respond(sessionId, userAnswer);
@@ -289,6 +302,7 @@ const server = http.createServer(async (req, res) => {
 
     const pastContext = buildPastLearningContext(userId);
 
+    console.log(`[API] POST /api/learning/complete 요청 시작 — sessionId=${sessionId} companyId=${companyId}`);
     let result;
     try {
       result = await completeLearning(

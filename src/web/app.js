@@ -6,6 +6,16 @@
 const $ = (sel, root) => (root ?? document).querySelector(sel);
 const $id = (id) => document.getElementById(id);
 
+const COACH_ENV = window.__COACH_ENV || "mock";
+function coachEnvLabel() {
+  return COACH_ENV === "real" ? "실제 Solar 코치" : "개발 환경: mock 코치";
+}
+function coachEnvStatus() {
+  return COACH_ENV === "real" ? "실제 Solar 코치" : "개발용 mock";
+}
+const coachBadgeEl = document.getElementById("coachBadge");
+if (coachBadgeEl) coachBadgeEl.textContent = coachEnvLabel();
+
 const SCREENS = new Set([
   "workspace",
   "themes",
@@ -60,7 +70,7 @@ async function renderWorkspace(root) {
           <h1>InvestLens</h1>
         </div>
         <div class="ws-header-group">
-          <span class="ws-status">개발용 mock</span>
+          <span class="ws-status">${coachEnvStatus()}</span>
           <button type="button" class="ws-icon-btn" id="wsToggleRight" aria-label="코치 사이드바 열기 또는 닫기" aria-expanded="${state.rightSidebarOpen}">
             <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2" width="13" height="12" rx="1.5"></rect><path d="M11 2v12"></path></svg>
           </button>

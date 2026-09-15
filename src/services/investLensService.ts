@@ -1,4 +1,4 @@
-import { PastLearningContext } from "../domain/types";
+import { PastLearningContext, LearningSession } from "../domain/types";
 import { MarketSceneFixture } from "../fixtures/marketSceneFixtures";
 import {
   createLearningSession,
@@ -43,6 +43,7 @@ export async function startLearningTurn(
   input: PreparedSessionInput,
   coachCall?: CoachTurnCall
 ): Promise<LearningTurnResult> {
+  console.log("[investLensService] startLearningTurn 시작 — userId=" + input.userId + " companyId=" + input.companyId);
   const session = createLearningSession({
     userId: input.userId,
     companyId: input.companyId,
@@ -99,6 +100,7 @@ export async function completeLearning(
   userDecision: import("../domain/types").DecisionAction,
   coachSummaryCall?: CoachSummaryCall
 ): Promise<LearningCompletionResult> {
+  console.log("[investLensService] completeLearning 시작 — sessionId=" + sessionId);
   const existingSession = getSessionById(sessionId);
   if (!existingSession) {
     throw new Error(`completeLearning: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
@@ -176,6 +178,7 @@ export async function respond(
   userAnswer: string,
   coachCall?: CoachTurnCall
 ): Promise<RespondResult> {
+  console.log("[investLensService] respond 시작 — sessionId=" + sessionId);
   const existingSession = getSessionById(sessionId);
   if (!existingSession) {
     throw new Error(`respond: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
@@ -207,11 +210,10 @@ export async function respond(
         candidateStates: [],
       },
       marketFixture: {
-        id: "",
         companyId: updatedAfterUser.companyId,
         scene: updatedAfterUser.marketScene,
         numbers: updatedAfterUser.marketNumbers,
-        verified: true,
+        status: "verified",
       },
       userAnswer,
       conversationTurns: updatedAfterUser.turns,
