@@ -4,33 +4,34 @@
 
 ## 현재 우선순위 (세션 분할 계획)
 
-1. 로깅 + 죽은 코드 정리 — 부분 완료, 아래 "세션 1 추가 작업" 마저 끝내고 넘어갈 것
-2. 코치 화면 멀티턴 채팅화 (app.js가 session.turns를 버리고 최신 메시지만 렌더링하는 문제)
+1. 로깅 + 죽은 코드 정리 — 완료 (ce64d8b, npm test 통과, dotenv/배지 버그도 수정 확인됨)
+2. 코치 화면 멀티턴 채팅화 — 구조는 완료, 아래 "다음 할 일"의 blocking 이슈 먼저 해결
 3. SKILL.md 다이어트 (ORIGINAL_SKILL.md는 보존, SKILL.md만 축소)
 4. 실제 데이터 파이프라인 (리포트 텍스트 → 렌즈 관련 데이터 추출 → coachService 컨텍스트로 사용, fixture 하드코딩 대체)
 5. 통합 확인 + 제출 정리
 
-## 세션 1 추가 작업 (다음 Hermes 세션에 그대로 지시)
+## 다음 할 일 (PR 전 필수, blocking)
 
-세션 1에서 만든 mock/real 배지 로직을 실행해서 확인해보니 실제로는 동작 안 함 + 기존에 있던 타입 에러들이 있음. 아래를 한 세션에서 정리:
+`paintWorkspaceRight`(app.js)는 `state.currentSession.readyToComplete === true`일 때만 판단/결정/완료 UI를 보여주는데, `readyToComplete`는 `coachService.ts`의 `!hasQuestion`으로 계산된다. 근데 `SKILL.md`는 "매 턴은 판단 질문으로 끝낸다"가 규칙이라 Solar가 스킬을 잘 따를수록 물음표가 계속 붙는다. curl로 직접 respond를 4번 연속 호출해서 검증했는데 4턴 내내 `readyToComplete: false`였다 — **지금 구조로는 라이브 화면에서 학습을 끝낼 방법이 없을 수 있다.**
 
-- **버그**: `server.ts`의 `serveFile`이 `serveFile(res, "src/web/index.html")`처럼 전체 상대경로로 호출되는데, 내부 조건은 `if (path === "index.html")`이라 절대 참이 안 돼서 `window.__COACH_ENV` 마커가 실제로는 한 번도 주입되지 않는다. `path === "index.html"`을 `path.endsWith("index.html")`로 바꿀 것.
-- **버그**: `package.json`에 `dotenv` 의존성은 있는데 어디서도 `import "dotenv/config"`를 호출하지 않아서 `.env`의 `UPSTAGE_API_KEY`가 실제로 로드되지 않는다. `server.ts` 맨 위(다른 import보다 먼저, coachService가 평가되기 전)에 `import "dotenv/config";` 추가할 것.
-- **타입 에러 (npm test 기준, 세션 1 이전부터 있던 기존 버그)**:
-  - `investLensService.ts`: `LearningSession` 타입이 `../domain/types`에서 import 안 됨 (`Cannot find name 'LearningSession'`, 여러 줄).
-  - `coachService.ts`의 `callBeginnerStockCoach` 리턴 객체에 `readyToComplete: boolean` 필드가 빠져 있음 (타입은 요구하는데 실제 리턴에 없음). 판단 질문이 없는 턴(`!hasQuestion`)을 완료 신호로 보는 식으로 채우면 됨.
-  - `investLensService.ts`의 `respond()` 안에서 만드는 `marketFixture` 객체가 `domain/types.ts`의 (안 쓰이는) `MarketSceneFixture` 모양(`id`, `verified`)으로 되어 있는데, 실제 import된 타입은 `fixtures/marketSceneFixtures.ts`의 것(`status: "unverified_mock" | "verified"`, `id` 없음)이라 안 맞음. `id`/`verified` 대신 `status: "verified"`로 바꿀 것.
-  - `domain/types.ts`의 `MarketSceneFixture` interface는 어디서도 안 쓰이는 중복 정의라서 위 혼동의 원인임 — 지워도 됨(`fixtures/marketSceneFixtures.ts` 쪽이 실제로 쓰이는 것).
-  - `seed.ts`의 seed 세션 3개 각각에 `LearningSession`이 요구하는 `turns`(빈 배열 가능)와 `phase` 필드가 빠져 있음. 이미 완료된 과거 세션들이니 `turns: []`, `phase: "ready_to_complete"` 정도면 됨.
-  - `src/web/server-coach-mock.ts`는 이번 세션 1에서 `server.ts`의 마지막 import를 지웠기 때문에 이제 어디서도 안 쓰이는 죽은 파일이 됨 (grep 결과 참조 0). 삭제할 것.
-  - `src/tests/goldenPath.test.ts`의 로컬 `mockCallBeginnerStockCoach`도 `readyToComplete`가 빠져서 타입 에러 남 — 같은 식으로 채워줄 것.
-  - 다 고치고 나면 `npm test`가 타입에러 없이 golden path까지 통과해야 함(직접 검증 완료).
+해결: `readyToComplete` 신호에만 의존하지 말고, 사용자가 턴 수와 무관하게 언제든 누를 수 있는 "판단 정리하고 끝내기" 버튼/토글을 추가해서 `wsJudgment`/`wsDecisions`/`wsCompleteBtn` UI를 노출할 것. `readyToComplete === true`가 오면 자동으로 그 UI를 보여주는 것도 유지하되, 그게 유일한 경로면 안 된다.
+
+## 참고: 세션 진행 시 주의
+
+- 레거시 화면(`renderThemes`/`renderScene`/`renderLearning`/`renderDecision`/`startLearning`)은 `테마 기반 워크스페이스 구현`(2d4c513) 이전 코드로, 지금 앱에서 `state.screen`이 `"workspace"`로 시작하고 거기서 이 화면들로 넘어가는 진입점이 없어 도달 불가능하다. 실제 라이브 코드는 `renderWorkspace`/`paintWorkspaceRight`/`paintWorkspaceCenter`/`bindWorkspaceEvents`뿐이다. 레거시 화면은 계속 건드리지 말 것(과거에 지시했는데도 위반한 적 있음 — diff로 직접 확인해서 재확인할 것).
+- 세션이 끝나고 "뭘 안 건드렸다"고 보고하는 내용은 그대로 믿지 말고 `git diff`로 직접 확인한다.
 
 ## 로그
 
+### 2026-09-16 — 세션 2: 서버 잔여 버그 수정 + 코치 패널 멀티턴 채팅화 (ce64d8b 이후, 커밋 전)
+
+- `server.ts`에 `import "dotenv/config"` 추가, `serveFile`의 `path === "index.html"`을 `path.endsWith("index.html")`로 수정 — `__COACH_ENV="real"` 정상 주입 curl로 확인.
+- `paintWorkspaceRight`/`bindWorkspaceEvents`(app.js, 라이브 경로)를 `state.currentSession.turns` 기반 채팅 렌더링 + `/api/learning/respond` 연동으로 재작성. CSS에 `.ws-chat-*` 클래스 추가.
+- curl로 start→respond 4턴 직접 검증: 실제 Solar 응답, turns 누적 정상 동작. 단 `readyToComplete`가 4턴 내내 false — 위 "다음 할 일" 참고.
+- 레거시 화면(`renderLearning` 등)도 같이 수정됐는데 지시 위반이었음. 기능엔 영향 없음(죽은 코드).
+- 다음 세션: "다음 할 일" 항목(완료 도달 경로) 해결 후 `npm run web`으로 브라우저에서 테마 선택 → 학습 시작 → 답변 여러 번 → 판단 정리 → 완료까지 끝까지 확인하고 PR.
+
 ### 2026-09-16 — 세션 1: 로깅 + 죽은 코드 정리
 
-- server.ts의 `mockCoachTurn`/`mockCoachSummary` import 제거 완료 (서버 코드 내 미사용 확인 후 삭제, 실제 import 없음 재확인).
-- index.html `coachBadge`와 app.js `ws-status` 문구를 `UPSTAGE_API_KEY` 존재 여부로 실제/모의 표시로 변경 완료: 서버가 `index.html` 서빙 시 첫 `<script>` 앞에 `window.__COACH_ENV="mock"/"real"` 인라인 스크립트 주입, app.js가 `window.__COACH_ENV`를 읽어 badge·ws-status에 반영.
-- server.ts 각 API 핸들러(`/api/learning/start`, `respond`, `complete`)에 요청 시작 로그, coachService.ts `callSolar`에 호출 시작·Solar API 응답 status 로그, investLensService.ts 주요 분기(`startLearningTurn`, `completeLearning`, `respond`) 진입 로그 추가 완료 (모두 콘솔 로그).
-- 다음 세션이 할 일: 세션 2 — 코치 화면 멀티턴 채팅화 (app.js가 `session.turns`를 버리고 최신 메시지만 렌더링하는 문제).
+- server.ts의 `mockCoachTurn`/`mockCoachSummary` import 제거, mock/real 배지 환경변수 연동(당시엔 조건 버그 있었음, 세션 2에서 수정됨), 콘솔 로깅 추가.
+- 이후 타입 에러 정리(LearningSession import, readyToComplete 필드, MarketSceneFixture 중복 타입, seed.ts 필드, 죽은 server-coach-mock.ts 삭제)까지 ce64d8b로 커밋 완료, npm test 통과.

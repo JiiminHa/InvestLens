@@ -221,17 +221,37 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `<div class="ws-coach-panel"><h2 class="ws-coach-heading">코치</h2><div class="ws-coach-message placeholder">시장 장면을 확인한 뒤 학습을 시작하세요.</div><button class="ws-btn ws-btn-primary" id="wsStartBtn" ${state.fixture ? "" : "disabled"}>학습 시작</button></div>`;
     return;
   }
+  const turns = state.currentSession.turns ?? [];
+  const readyToComplete = state.currentSession.readyToComplete === true;
+
+  const chatHtml = turns.length
+    ? turns.map((turn) => {
+        const isCoach = turn.role === "coach";
+        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+          <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
+          <div class="ws-chat-bubble">${escapeHtml(turn.content)}</div>
+        </div>`;
+      }).join("")
+    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
+
   right.innerHTML = `
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">코치 질문</h2>
-      <div class="ws-coach-message">${escapeHtml(state.currentSession.coachMessage)}</div>
-      <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
-      <div class="ws-decision-options" id="wsDecisions">
-        ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
-      </div>
-      <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
-    </div>`;
-}
+      <div class="ws-chat-list">${chatHtml}</div>
+      ${!readyToComplete ? `
+        <label class="ws-input-group">
+          <span class="ws-input-label">내 답변</span>
+          <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
+        </label>
+        <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+      ` : `
+        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
+        <div class="ws-decision-options" id="wsDecisions">
+          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
+        </div>
+        <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
+      `}
+    </div>`;}
 
 function bindWorkspaceEvents(recent) {
   document.querySelectorAll("[data-ws-theme]").forEach((button) => button.addEventListener("click", async () => {
@@ -289,7 +309,13 @@ function bindWorkspaceEvents(recent) {
     button.textContent = "시작하는 중…";
     try {
       const result = await postJSON("/api/learning/start", { userId: "demo_user", themeId: state.selectedTheme.id, companyId: state.selectedCompany.id });
-      state.currentSession = { sessionId: result.sessionId, coachMessage: result.coachMessage };
+      state.currentSession = {
+        sessionId: result.sessionId,
+        turns: [
+          { role: "coach", content: result.coachMessage, createdAt: new Date().toISOString() },
+        ],
+        readyToComplete: result.isQuestionTurn ? false : true,
+      };
       state.fixture = result.fixture ?? state.fixture;
       paintWorkspace();
     } catch (err) {
@@ -297,34 +323,62 @@ function bindWorkspaceEvents(recent) {
     }
   });
 
-  const judgment = $id("wsJudgment");
-  const completeButton = $id("wsCompleteBtn");
-  const updateCompleteButton = () => {
-    const decision = document.querySelector('input[name="wsDecision"]:checked');
-    if (completeButton) completeButton.disabled = !judgment?.value.trim() || !decision;
-  };
-  judgment?.addEventListener("input", updateCompleteButton);
-  document.querySelectorAll('input[name="wsDecision"]').forEach((radio) => radio.addEventListener("change", updateCompleteButton));
-  completeButton?.addEventListener("click", async () => {
-    const decision = document.querySelector('input[name="wsDecision"]:checked')?.value;
-    if (!decision || !judgment?.value.trim()) return;
-    completeButton.disabled = true;
-    completeButton.textContent = "저장 중…";
+  const sendAnswerBtn = $id("wsSendAnswerBtn");
+  const userAnswerTextarea = $id("wsUserAnswer");
+  sendAnswerBtn?.addEventListener("click", async () => {
+    const answer = (userAnswerTextarea?.value ?? "").trim();
+    if (!answer || !state.currentSession) return;
+    sendAnswerBtn.disabled = true;
+    sendAnswerBtn.textContent = "답변 중…";
     try {
-      const result = await postJSON("/api/learning/complete", {
-        sessionId: state.currentSession.sessionId, userId: "demo_user", companyId: state.selectedCompany.id,
-        themeId: state.selectedTheme.id, userJudgment: judgment.value.trim(), userDecision: decision,
+      const result = await postJSON("/api/learning/respond", {
+        sessionId: state.currentSession.sessionId,
+        userAnswer: answer,
       });
-      state.phase = "completed";
-      state.summary = result.summary;
-      state.finalMessage = result.finalMessage;
-      state.selectedPastSession = null;
-      state.reconnectionData = await getJSON("/api/learning/reconnection?userId=demo_user");
+      state.currentSession = {
+        ...state.currentSession,
+        turns: result.turns ?? [],
+        readyToComplete: result.readyToComplete === true,
+      };
+      if (userAnswerTextarea) userAnswerTextarea.value = "";
       paintWorkspace();
     } catch (err) {
-      showError($id("app"), "학습 완료 중 오류가 발생했습니다.", err);
+      showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
+    } finally {
+      if (sendAnswerBtn) { sendAnswerBtn.disabled = false; sendAnswerBtn.textContent = "답변 보내기"; }
     }
   });
+
+  const judgment = $id("wsJudgment");
+  const completeButton = $id("wsCompleteBtn");
+  if (judgment && completeButton) {
+    const updateCompleteButton = () => {
+      const decision = document.querySelector('input[name="wsDecision"]:checked');
+      completeButton.disabled = !judgment.value.trim() || !decision;
+    };
+    judgment.addEventListener("input", updateCompleteButton);
+    document.querySelectorAll('input[name="wsDecision"]').forEach((radio) => radio.addEventListener("change", updateCompleteButton));
+    completeButton.addEventListener("click", async () => {
+      const decision = document.querySelector('input[name="wsDecision"]:checked')?.value;
+      if (!decision || !judgment.value.trim()) return;
+      completeButton.disabled = true;
+      completeButton.textContent = "저장 중…";
+      try {
+        const result = await postJSON("/api/learning/complete", {
+          sessionId: state.currentSession.sessionId, userId: "demo_user", companyId: state.selectedCompany.id,
+          themeId: state.selectedTheme.id, userJudgment: judgment.value.trim(), userDecision: decision,
+        });
+        state.phase = "completed";
+        state.summary = result.summary;
+        state.finalMessage = result.finalMessage;
+        state.selectedPastSession = null;
+        state.reconnectionData = await getJSON("/api/learning/reconnection?userId=demo_user");
+        paintWorkspace();
+      } catch (err) {
+        showError($id("app"), "학습 완료 중 오류가 발생했습니다.", err);
+      }
+    });
+  }
 }
 
 function bindWorkspaceShellEvents() {
@@ -479,7 +533,8 @@ function renderScene(root) {
 }
 
 function renderLearning(root) {
-  const { sessionId, themeId, themeName, companyId, companyName, marketScene, marketNumbers, coachMessage } = state;
+  const session = state.currentSession;
+  const { themeName, companyName } = state;
 
   root.innerHTML = `
     <section class="page learning-page">
@@ -492,7 +547,7 @@ function renderLearning(root) {
       </div>
       <div class="page-head">
         <h1>지금 배울 투자 개념</h1>
-        <p class="lead">코치가 이번 장면에서 생각해볼 질문과 개념을 제시합니다.</p>
+        <p class="lead">코치와 주고받은 대화를 아래 목록에서 확인할 수 있습니다.</p>
       </div>
       <div class="panel">
         <div class="panel-head">
@@ -503,21 +558,25 @@ function renderLearning(root) {
           <div class="panel-row">
             <div class="panel-field">
               <span class="field-label">장면</span>
-              <div class="field-value">${escapeHtml(marketScene)}</div>
+              <div class="field-value">${escapeHtml(session?.marketScene ?? "")}</div>
             </div>
             <div class="panel-field">
               <span class="field-label">시장 수치</span>
-              <div class="field-value mono">${escapeHtml(marketNumbers)}</div>
+              <div class="field-value mono">${escapeHtml(session?.marketNumbers ?? "")}</div>
             </div>
           </div>
         </div>
       </div>
       <div class="panel">
         <div class="panel-head">
-          <span class="panel-label">🎯 코치 질문</span>
+          <span class="panel-label">🎯 코치 대화</span>
         </div>
-        <div class="panel-body coach-message">
-          <p>${escapeHtml(coachMessage)}</p>
+        <div class="panel-body">
+          <div class="chat-list" id="chatList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:4px 0;"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <textarea id="wsUserAnswer" class="ws-textarea" rows="3" placeholder="코치의 질문에 답변해 주세요." style="flex:1;"></textarea>
+            <button id="wsSendAnswer" class="ws-btn ws-btn-primary">답변 보내기</button>
+          </div>
         </div>
       </div>
       <div class="scene-actions">
@@ -529,10 +588,61 @@ function renderLearning(root) {
     </section>
   `;
 
-  $id("toDecisionBtn").addEventListener("click", () => {
-    state = { screen: "decision", sessionId, themeId, themeName, companyId, companyName };
+  renderChatList();
+
+  $id("wsSendAnswer")?.addEventListener("click", async () => {
+    const answer = ($id("wsUserAnswer")?.value ?? "").trim();
+    if (!answer) return;
+    const btn = $id("wsSendAnswer");
+    const textarea = $id("wsUserAnswer");
+    btn.disabled = true;
+    btn.textContent = "답변 중…";
+    try {
+      const result = await postJSON("/api/learning/respond", {
+        sessionId: session?.sessionId,
+        userAnswer: answer,
+      });
+      if (session) {
+        state.currentSession = {
+          ...session,
+          turns: (session.turns ?? []).concat(result.turns ?? []),
+          coachMessage: result.coachMessage ?? (result.turns?.find((t) => t.role === "coach")?.content ?? session.coachMessage ?? ""),
+          readyToComplete: result.readyToComplete ?? session.readyToComplete ?? false,
+        };
+      }
+      if (textarea) textarea.value = "";
+      renderChatList();
+    } catch (err) {
+      showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "답변 보내기"; }
+    }
+  });
+
+  $id("toDecisionBtn")?.addEventListener("click", () => {
+    state = { screen: "decision", sessionId: session?.sessionId, themeId: state.themeId, themeName, companyId: state.companyId, companyName };
     render();
   });
+}
+
+function renderChatMessage(turn) {
+  const isCoach = turn.role === "coach";
+  const label = isCoach ? "코치" : "나";
+  const wrapperStyle = "display:flex;justify-content:" + (isCoach ? "flex-start" : "flex-end") + ";padding:2px 0;";
+  const textStyle =
+    "display:flex;flex-direction:column;max-width:88%;padding:8px 12px;border-radius:10px;line-height:1.5;word-break:break-word;align-self:" +
+    (isCoach ? "flex-start" : "flex-end") +
+    ";background:" + (isCoach ? "#eef3fb" : "#e9eef5") + ";color:#1f2a44;border-bottom-" + (isCoach ? "left" : "right") + "-radius:4px;";
+  return `<div style="${wrapperStyle}"><span style="font-size:12px;color:#6b7280;align-self:center;margin-right:6px;">${escapeHtml(label)}</span><div style="${textStyle}">${escapeHtml(turn.content)}</div></div>`;
+}
+
+function renderChatList() {
+  const chatList = $id("chatList");
+  if (!chatList) return;
+  const session = state.currentSession;
+  chatList.innerHTML = session?.turns?.length
+    ? session.turns.map(renderChatMessage).join("")
+    : `<div class="chat-empty" style="padding:8px;color:#6b7280;">아직 대화가 없습니다. 학습을 시작하면 코치의 질문이 표시됩니다.</div>`;
 }
 
 function renderDecision(root) {
@@ -903,14 +1013,22 @@ async function startLearning(themeId, companyId, companyName) {
 
     state = {
       screen: "learning",
-      sessionId: result.sessionId,
       themeId,
-      themeName: themeId,
+      themeName: state.themeName ?? themeId,
       companyId,
       companyName,
-      marketScene: result.fixture?.scene ?? "",
-      marketNumbers: result.fixture?.numbers ?? "",
-      coachMessage: result.coachMessage,
+      currentSession: {
+        sessionId: result.sessionId,
+        turns: [{
+          role: "coach",
+          content: result.coachMessage,
+          createdAt: new Date().toISOString(),
+        }],
+        marketScene: result.fixture?.scene ?? "",
+        marketNumbers: result.fixture?.numbers ?? "",
+        coachMessage: result.coachMessage ?? "",
+        readyToComplete: result.readyToComplete ?? false,
+      },
     };
 
     render();

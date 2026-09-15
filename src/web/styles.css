@@ -1113,6 +1113,56 @@ body.ws-open .shell-main {
   color: var(--ws-muted);
 }
 
+.ws-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ws-chat-turn {
+  display: flex;
+  flex-direction: column;
+  max-width: 92%;
+}
+
+.ws-chat-turn.coach {
+  align-self: flex-start;
+}
+
+.ws-chat-turn.user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.ws-chat-label {
+  font-size: 10px;
+  color: var(--ws-muted);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.ws-chat-bubble {
+  padding: 9px 11px;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ws-chat-turn.user .ws-chat-bubble {
+  background: var(--ws-surface-soft);
+  border-bottom-right-radius: 2px;
+}
+
 .ws-input-group {
   display: grid;
   gap: 5px;
