@@ -1,4 +1,4 @@
-import { PastLearningContext } from "../domain/types";
+import { PastLearningContext, LearningSession } from "../domain/types";
 import { MarketSceneFixture } from "../fixtures/marketSceneFixtures";
 import {
   createLearningSession,
@@ -23,6 +23,13 @@ export interface LearningTurnResult {
   isQuestionTurn: boolean;
 }
 
+export interface RespondResult {
+  session: import("../domain/types").LearningSession;
+  coachMessage: string;
+  isQuestionTurn: boolean;
+  readyToComplete: boolean;
+}
+
 export interface LearningCompletionResult {
   session: import("../domain/types").LearningSession;
   summary: import("../domain/types").SessionSummary;
@@ -36,11 +43,12 @@ export async function startLearningTurn(
   input: PreparedSessionInput,
   coachCall?: CoachTurnCall
 ): Promise<LearningTurnResult> {
+  console.log("[investLensService] startLearningTurn 시작 — userId=" + input.userId + " companyId=" + input.companyId);
   const session = createLearningSession({
     userId: input.userId,
     companyId: input.companyId,
-    market_scene: input.marketScene,
-    market_numbers: input.marketNumbers,
+    marketScene: input.marketScene,
+    marketNumbers: input.marketNumbers,
   });
 
   const effectiveCoachCall = coachCall ?? callBeginnerStockCoach;
@@ -61,8 +69,24 @@ export async function startLearningTurn(
     throw error;
   }
 
+  const firstTurn: LearningSession["turns"][0] = {
+    role: "coach",
+    content: turnResponse.message,
+    createdAt: new Date().toISOString(),
+  };
+
+  saveSession({
+    ...session,
+    turns: [firstTurn],
+    phase: "question",
+  });
+
   return {
-    session,
+    session: {
+      ...session,
+      turns: [firstTurn],
+      phase: "question",
+    },
     coachMessage: turnResponse.message,
     isQuestionTurn: turnResponse.isQuestionTurn,
   };
@@ -76,6 +100,7 @@ export async function completeLearning(
   userDecision: import("../domain/types").DecisionAction,
   coachSummaryCall?: CoachSummaryCall
 ): Promise<LearningCompletionResult> {
+  console.log("[investLensService] completeLearning 시작 — sessionId=" + sessionId);
   const existingSession = getSessionById(sessionId);
   if (!existingSession) {
     throw new Error(`completeLearning: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
@@ -145,5 +170,83 @@ export async function completeLearning(
     session: completed,
     summary: overriddenSummary,
     finalMessage,
+  };
+}
+
+export async function respond(
+  sessionId: string,
+  userAnswer: string,
+  coachCall?: CoachTurnCall
+): Promise<RespondResult> {
+  console.log("[investLensService] respond 시작 — sessionId=" + sessionId);
+  const existingSession = getSessionById(sessionId);
+  if (!existingSession) {
+    throw new Error(`respond: 세션을 찾을 수 없습니다. sessionId=${sessionId}`);
+  }
+
+  const userTurn: LearningSession["turns"][0] = {
+    role: "user",
+    content: userAnswer,
+    createdAt: new Date().toISOString(),
+  };
+
+  const updatedAfterUser: LearningSession = {
+    ...existingSession,
+    turns: [...existingSession.turns, userTurn],
+    phase: "feedback",
+  };
+  saveSession(updatedAfterUser);
+
+  const effectiveCoachCall = coachCall ?? callBeginnerStockCoach;
+
+  let turnResponse;
+  try {
+    turnResponse = await effectiveCoachCall({
+      session: updatedAfterUser,
+      pastLearningContext: {
+        userId: updatedAfterUser.userId,
+        recentSessions: [], // 실제 구현 시 과거 맥락 주입 필요
+        lensStates: [],
+        candidateStates: [],
+      },
+      marketFixture: {
+        companyId: updatedAfterUser.companyId,
+        scene: updatedAfterUser.marketScene,
+        numbers: updatedAfterUser.marketNumbers,
+        status: "verified",
+      },
+      userAnswer,
+      conversationTurns: updatedAfterUser.turns,
+    });
+  } catch (error) {
+    saveSession({
+      ...updatedAfterUser,
+      status: "failed",
+      endedAt: new Date().toISOString(),
+    });
+    throw error;
+  }
+
+  const coachTurn: LearningSession["turns"][0] = {
+    role: "coach",
+    content: turnResponse.message,
+    createdAt: new Date().toISOString(),
+  };
+
+  const finalPhase: LearningSession["phase"] =
+    turnResponse.readyToComplete ? "ready_to_complete" : "question";
+
+  const updatedSession: LearningSession = {
+    ...updatedAfterUser,
+    turns: [...updatedAfterUser.turns, coachTurn],
+    phase: finalPhase,
+  };
+  saveSession(updatedSession);
+
+  return {
+    session: updatedSession,
+    coachMessage: turnResponse.message,
+    isQuestionTurn: turnResponse.isQuestionTurn,
+    readyToComplete: turnResponse.readyToComplete,
   };
 }

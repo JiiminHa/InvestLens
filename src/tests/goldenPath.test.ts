@@ -38,9 +38,9 @@ export async function mockCallBeginnerStockCoach(
     pastLearningContext: import("../domain/types").PastLearningContext;
     marketFixture: import("../fixtures/marketSceneFixtures").MarketSceneFixture;
   }
-): Promise<{ message: string; isQuestionTurn: boolean }> {
+): Promise<{ message: string; isQuestionTurn: boolean; readyToComplete: boolean }> {
   const { firstTurnMessage } = await mockCoachForTest();
-  return { message: firstTurnMessage, isQuestionTurn: firstTurnMessage.includes("?") };
+  return { message: firstTurnMessage, isQuestionTurn: firstTurnMessage.includes("?"), readyToComplete: !firstTurnMessage.includes("?") };
 }
 
 export async function mockCallBeginnerStockCoachSummary(

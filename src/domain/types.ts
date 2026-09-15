@@ -33,15 +33,6 @@ export interface LensInfo {
   name: string;
 }
 
-export interface MarketSceneFixture {
-  id: string;
-  companyId: CompanyId;
-  scene: string;
-  numbers: string;
-  verified: boolean;
-  note?: string;
-}
-
 // 과거 세션 요약 (coach에 전달할 맥락)
 export interface PastSessionSummary {
   sessionId: string;
@@ -76,6 +67,14 @@ export interface LearningSession {
   status: "in_progress" | "completed" | "failed";
   startedAt: string;
   endedAt: string | null;
+  // 대화 턴 누적
+  turns: Array<{
+    role: "coach" | "user";
+    content: string;
+    createdAt: string;
+  }>;
+  // 현재 진행 단계
+  phase: "question" | "feedback" | "ready_to_complete";
   // 종료 시점에 채워지는 필드 (nullable)
   coachLensUsedId: LensId | null;
   lensName: string | null;

@@ -10,8 +10,8 @@ import { MARKET_SCENE_FIXTURES } from "../fixtures/marketSceneFixtures";
 import { THEMES, companiesForTheme } from "../domain/themes";
 import { companyName } from "../domain/constants";
 import { lensName } from "../domain/constants";
-import { startLearningTurn, completeLearning } from "../services/investLensService";
-import { mockCoachTurn, mockCoachSummary } from "./server-coach-mock";
+import { DecisionAction } from "../domain/types";
+import { startLearningTurn, completeLearning, respond } from "../services/investLensService";
 
 const WEB_ROOT = process.cwd();
 
@@ -48,8 +48,19 @@ function serveFile(res: http.ServerResponse, path: string) {
     notFound(res);
     return;
   }
+  let content = readFileSync(full, "utf8");
+  if (path === "index.html") {
+    const isMock = !process.env.UPSTAGE_API_KEY;
+    const envMarker = isMock
+      ? `<script>window.__COACH_ENV="mock"</script>`
+      : `<script>window.__COACH_ENV="real"</script>`;
+    content = content.replace(
+      /<script\b/,
+      envMarker + "<script",
+    );
+  }
   res.writeHead(200, { "Content-Type": guessMime(path) });
-  res.end(readFileSync(full, "utf8"));
+  res.end(content);
 }
 
 function guessMime(path: string): string {
@@ -150,6 +161,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    console.log(`[API] POST /api/learning/start 요청 시작 — userId=${userId} themeId=${themeId} companyId=${companyId}`);
     const companies = companiesForTheme(themeId);
     if (!companies.includes(companyId as any)) {
       badRequest(res, "해당 테마에 없는 companyId입니다");
@@ -172,7 +184,15 @@ const server = http.createServer(async (req, res) => {
       fixture,
     };
 
-    const turn = await startLearningTurn(input, mockCoachTurn);
+    let turn;
+    try {
+      console.log(`[API] startLearningTurn 호출 시작 — sessionId 생성 전`);
+      turn = await startLearningTurn(input);
+    } catch (error) {
+      console.error("startLearningTurn error:", error);
+      json(res, { error: "코치 응답 중 오류가 발생했습니다" }, 502);
+      return;
+    }
 
     json(res, {
       sessionId: turn.session.id,
@@ -186,6 +206,49 @@ const server = http.createServer(async (req, res) => {
         note: fixture.note,
         mockNote: fixture.mockNote,
       },
+    });
+    return;
+  }
+
+  if (req.method === "POST" && path === "/api/learning/respond") {
+    const body = await readBody(req);
+    let payload: { sessionId?: string; userAnswer?: string; };
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      badRequest(res, "JSON 페이로드가 아닙니다");
+      return;
+    }
+
+    const sessionId = payload.sessionId;
+    const userAnswer = payload.userAnswer;
+
+    if (!sessionId || !userAnswer) {
+      badRequest(res, "sessionId와 userAnswer가 필요합니다");
+      return;
+    }
+
+    console.log(`[API] POST /api/learning/respond 요청 시작 — sessionId=${sessionId}`);
+    let result;
+    try {
+      result = await respond(sessionId, userAnswer);
+    } catch (error: any) {
+      if (error instanceof Error && error.message.includes("세션을 찾을 수 없습니다")) {
+        json(res, { error: error.message }, 404);
+        return;
+      }
+      console.error("respond error:", error);
+      json(res, { error: "코치 응답 중 오류가 발생했습니다" }, 502);
+      return;
+    }
+
+    json(res, {
+      sessionId: result.session.id,
+      coachMessage: result.coachMessage,
+      isQuestionTurn: result.isQuestionTurn,
+      readyToComplete: result.readyToComplete,
+      turns: result.session.turns,
+      phase: result.session.phase,
     });
     return;
   }
@@ -219,6 +282,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const allowedDecisions: DecisionAction[] = ["투자함", "투자하지 않음", "공부만 함"];
+    if (!allowedDecisions.includes(userDecision as DecisionAction)) {
+      badRequest(res, "유효하지 않은 userDecision입니다");
+      return;
+    }
+
     const companies = companiesForTheme(themeId);
     if (!companies.includes(companyId as any)) {
       badRequest(res, "해당 테마에 없는 companyId입니다");
@@ -233,14 +302,25 @@ const server = http.createServer(async (req, res) => {
 
     const pastContext = buildPastLearningContext(userId);
 
-    const result = await completeLearning(
-      sessionId,
-      pastContext,
-      fixture,
-      userJudgment,
-      userDecision as any,
-      mockCoachSummary
-    );
+    console.log(`[API] POST /api/learning/complete 요청 시작 — sessionId=${sessionId} companyId=${companyId}`);
+    let result;
+    try {
+      result = await completeLearning(
+        sessionId,
+        pastContext,
+        fixture,
+        userJudgment,
+        userDecision as DecisionAction
+      );
+    } catch (error: any) {
+      if (error instanceof Error && error.message.includes("세션을 찾을 수 없습니다")) {
+        json(res, { error: error.message }, 404);
+        return;
+      }
+      console.error("completeLearning error:", error);
+      json(res, { error: "학습 완료 중 오류가 발생했습니다" }, 500);
+      return;
+    }
 
     json(res, {
       session: {
