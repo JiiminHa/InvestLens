@@ -88,7 +88,7 @@ const EXTRACTION_SYSTEM = [
   "- 출력은 위 항목 줄만 낸다. 추가 설명 금지.",
 ].join("\n");
 
-async function extractInvestmentDataPool(reportText: string): Promise<string> {
+export async function extractInvestmentDataPool(reportText: string): Promise<string> {
   console.log("[coachService] 리포트 데이터 추출 시작 — 텍스트 길이:" + reportText.length);
   const content = await callSolar([
     { role: "system", content: EXTRACTION_SYSTEM },
@@ -176,16 +176,12 @@ export async function callBeginnerStockCoach(
     marketFixture: MarketSceneFixture;
     userAnswer?: string;
     conversationTurns?: Array<{ role: "coach" | "user"; content: string }>;
-    reportText?: string;
+    dataPool?: string;
   }
 ): Promise<{ message: string; isQuestionTurn: boolean; readyToComplete: boolean }> {
   const pastContextBlock = buildPastContextBlock(input.pastLearningContext);
   const system = buildFirstTurnSystemPrompt();
-  let dataPool: string | undefined;
-  if (input.reportText) {
-    dataPool = await extractInvestmentDataPool(input.reportText);
-  }
-  const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock, dataPool);
+  const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock, input.dataPool);
 
   const content = await callSolar([
     { role: "system", content: system },
@@ -225,13 +221,21 @@ function buildSummaryUserPrompt(
   marketFixture: MarketSceneFixture,
   userJudgment: string,
   userDecision: DecisionAction,
-  pastLearningContext: PastLearningContext
+  pastLearningContext: PastLearningContext,
+  dataPool?: string
 ): string {
   const parts: string[] = [];
   parts.push("## 세션 정보");
   parts.push("- 기업/테마: " + session.companyId);
-  parts.push("- 시장 장면: " + marketFixture.scene);
+  if (!dataPool) {
+    parts.push("- 시장 장면: " + marketFixture.scene);
+  }
   parts.push("");
+  if (dataPool) {
+    parts.push("## 리포트에서 추출한 데이터 풀");
+    parts.push(dataPool);
+    parts.push("");
+  }
   parts.push("## 사용자 판단");
   parts.push("- 판단: " + userJudgment);
   parts.push("- 결정: " + userDecision);
@@ -282,6 +286,7 @@ export async function callBeginnerStockCoachSummary(
     session: LearningSession;
     pastLearningContext: PastLearningContext;
     marketFixture: MarketSceneFixture;
+    dataPool?: string;
   },
   userJudgment: string,
   userDecision: DecisionAction
@@ -292,7 +297,8 @@ export async function callBeginnerStockCoachSummary(
     input.marketFixture,
     userJudgment,
     userDecision,
-    input.pastLearningContext
+    input.pastLearningContext,
+    input.dataPool
   );
 
   const content = await callSolar([
@@ -317,13 +323,19 @@ export async function callBeginnerStockCoachSummary(
     })),
   };
 
-  const finalMessage =
-    "정리하면, 이번 " + input.session.companyId + " 장면은 " + input.marketFixture.scene + "\n\n" +
-    "사용한 렌즈: " + summary.lensName + "\n" +
-    "판단: " + summary.judgment + "\n" +
-    "결정: " + summary.decisionAction + "\n\n" +
-    "과거 학습에서 다룬 \"" + summary.lensName + "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
-    "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.";
+  const finalMessage = input.dataPool
+    ? "정리하면, 이번 " + input.session.companyId + " 장면은 사용자가 제공한 리포트에서 추출한 아래 데이터를 기준으로 봤다.\n" + input.dataPool + "\n\n" +
+      "사용한 렌즈: " + summary.lensName + "\n" +
+      "판단: " + summary.judgment + "\n" +
+      "결정: " + summary.decisionAction + "\n\n" +
+      "과거 학습에서 다룬 \"" + summary.lensName + "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
+      "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라."
+    : "정리하면, 이번 " + input.session.companyId + " 장면은 " + input.marketFixture.scene + "\n\n" +
+      "사용한 렌즈: " + summary.lensName + "\n" +
+      "판단: " + summary.judgment + "\n" +
+      "결정: " + summary.decisionAction + "\n\n" +
+      "과거 학습에서 다룬 \"" + summary.lensName + "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
+      "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.";
 
   return { summary, finalMessage };
 }
