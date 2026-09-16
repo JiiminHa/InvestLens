@@ -144,17 +144,17 @@ function paintWorkspace() {
       <div class="ws-note-list">
         ${recent.length ? recent.map((session) => `
           <button type="button" class="ws-note-item ${state.selectedPastSession?.sessionId === session.sessionId ? "active" : ""}" data-ws-session="${escapeHtml(session.sessionId)}">
-            ${escapeHtml(session.companyName)} · ${escapeHtml(session.lensName)}
+            ${escapeHtml(session.companyName)} — ${escapeHtml(session.lensName)}로 판단 / ${escapeHtml(session.decisionAction ?? "공부만 함")}
           </button>
-        `).join("") : `<div class="ws-empty">저장된 노트가 없습니다.</div>`}
+        `).join("") : `<div class="ws-empty">아직 저장된 학습이 없습니다. 주제를 골라 첫 학습을 시작해보세요.</div>`}
       </div>
     </section>
     <section class="ws-section">
-      <h2 class="ws-section-title">학습한 렌즈</h2>
+      <h2 class="ws-section-title">학습한 투자 렌즈 (판단 기준)</h2>
       <div class="ws-lens-list">
         ${lenses.length ? lenses.map((lens) => `
           <div class="ws-lens-item"><span class="ws-lens-name">${escapeHtml(lens.lensName)}</span><span class="ws-lens-status">${escapeHtml(lens.status)}</span></div>
-        `).join("") : `<div class="ws-empty">학습한 렌즈가 없습니다.</div>`}
+        `).join("") : `<div class="ws-empty">아직 학습한 렌즈가 없습니다.</div>`}
       </div>
     </section>
   `;
@@ -170,7 +170,7 @@ function paintWorkspaceCenter(center, recent) {
     center.innerHTML = `
       <article class="ws-scene-card">
         <h2 class="ws-scene-title">${escapeHtml(note.companyName)} 학습 노트</h2>
-        <div class="ws-note-detail"><div class="ws-note-label">사용한 렌즈</div>${escapeHtml(note.lensName)}</div>
+        <div class="ws-note-detail"><div class="ws-note-label">사용한 렌즈 (판단 기준)</div>${escapeHtml(note.lensName)}</div>
         <div class="ws-note-detail"><div class="ws-note-label">판단</div>${escapeHtml(note.judgment)}</div>
         <div class="ws-note-detail"><div class="ws-note-label">결정</div>${escapeHtml(note.decisionAction)}</div>
       </article>
@@ -180,7 +180,7 @@ function paintWorkspaceCenter(center, recent) {
   }
 
   if (!state.selectedTheme) {
-    center.innerHTML = `<div class="ws-scene-card ws-empty">왼쪽에서 테마를 선택하면 현재 시장 장면을 확인할 수 있습니다.</div>`;
+    center.innerHTML = `<div class="ws-scene-card ws-empty">관심 주제를 고르면, 실제 시장 장면을 놓고 코치와 대화하며 스스로 판단해보는 학습 앱입니다.<div style="font-size:0.85em;color:var(--muted-foreground);margin-top:6px;">왼쪽에서 주제를 선택해 시작하세요.</div></div>`;
     return;
   }
 
@@ -235,7 +235,7 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `
       <div class="ws-summary"><h2 class="ws-summary-title">학습 완료</h2>
         <div class="ws-summary-grid">
-          <div class="ws-summary-item"><div class="ws-summary-label">렌즈</div><div class="ws-summary-value">${escapeHtml(summary.lensName ?? summary.lensUsed ?? "-")}</div></div>
+          <div class="ws-summary-item"><div class="ws-summary-label">렌즈 (판단 기준)</div><div class="ws-summary-value">${escapeHtml(summary.lensName ?? summary.lensUsed ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">상태</div><div class="ws-summary-value">${escapeHtml(summary.lensStatusAfter ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">판단</div><div class="ws-summary-value">${escapeHtml(summary.judgment ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">결정</div><div class="ws-summary-value">${escapeHtml(summary.decisionAction ?? "-")}</div></div>
@@ -849,7 +849,7 @@ function renderComplete(root) {
         </div>
         <div class="summary-grid">
           <div class="summary-item">
-            <span class="summary-label">사용한 렌즈</span>
+            <span class="summary-label">사용한 렌즈 (판단 기준)</span>
             <span class="summary-value">${escapeHtml(lensName)}</span>
           </div>
           <div class="summary-item">
@@ -960,7 +960,7 @@ function renderReconnection(root) {
               <span class="session-status">${escapeHtml(s.status)}</span>
             </div>
             <div class="session-item-detail">
-              <span class="session-lens">사용한 렌즈: ${escapeHtml(s.lensName)}</span>
+              <span class="session-lens">사용한 렌즈 (판단 기준): ${escapeHtml(s.lensName)}</span>
               <span class="session-judgment">판단: ${escapeHtml(s.judgment)}</span>
               <span class="session-decision">결정: ${escapeHtml(s.decisionAction)}</span>
             </div>
@@ -973,7 +973,7 @@ function renderReconnection(root) {
       if (lensStates.length) {
         html += `
           <div class="reconnection-section">
-            <h2>익힌 렌즈 상태</h2>
+            <h2>익힌 렌즈 상태 (판단 기준)</h2>
             <ul class="lens-list">
         `;
         for (const e of lensStates) {
