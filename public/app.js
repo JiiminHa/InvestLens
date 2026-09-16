@@ -273,17 +273,7 @@ function paintWorkspaceCenter(center, recent) {
 
       let quickRepliesHtml = "";
       if (isCoach && idx === lastCoachIndex && !hasUserAfterLastCoach && !isCompleted && choices.length) {
-        const lines = turn.content.split("\n");
-        const choiceKeys = new Set(choices.map(c => c.key));
-        const filteredLines = lines.filter(line => {
-          const trimmed = line.trimStart();
-          const optionMatch = trimmed.match(/^([A-C])[.):]\s*(.+)$/);
-          if (optionMatch && choiceKeys.has(optionMatch[1])) {
-            return false;
-          }
-          return true;
-        });
-        const filteredContent = filteredLines.join("\n").trim();
+        const filteredContent = splitChoices(turn.content).body;
         const escapedChoices = choices.map(c => ({
           key: c.key,
           label: c.label,
@@ -1162,17 +1152,46 @@ function showError(root, message, err) {
   });
 }
 
-function extractChoices(text) {
+// 코치 메시지를 본문과 선택지로 나눈다.
+// 선택지가 줄마다 "A. …"로 오는 경우와, 한 줄에 "질문? A. … B. … C. …"로 이어 오는 경우를 모두 처리한다.
+function splitChoices(text) {
   const lines = text.split("\n");
-  const choices = [];
+
+  const lineChoices = [];
+  const bodyLines = [];
   for (const line of lines) {
-    const trimmed = line.trimStart();
-    const match = trimmed.match(/^([A-C])[.):]\s*(.+)$/);
-    if (match) {
-      choices.push({ key: match[1], label: match[2].trim() });
+    const match = line.trimStart().match(/^([A-C])[.):]\s*(.+)$/);
+    if (match) lineChoices.push({ key: match[1], label: match[2].trim() });
+    else bodyLines.push(line);
+  }
+  if (lineChoices.length >= 2) {
+    return { body: bodyLines.join("\n").trim(), choices: lineChoices };
+  }
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    const start = line.search(/(?:^|\s)A[.)]\s/);
+    if (start < 0 || !/\sB[.)]\s/.test(line.slice(start))) continue;
+    const tokens = line.slice(start).split(/(?:^|\s)([A-C])[.)]\s+/);
+    const choices = [];
+    for (let j = 1; j < tokens.length; j += 2) {
+      const label = (tokens[j + 1] ?? "").trim();
+      if (label) choices.push({ key: tokens[j], label });
+    }
+    if (choices.length >= 2) {
+      const head = line.slice(0, start).trim();
+      const bodyOut = lines.slice();
+      if (head) bodyOut[i] = head;
+      else bodyOut.splice(i, 1);
+      return { body: bodyOut.join("\n").trim(), choices };
     }
   }
-  return choices.length >= 2 ? choices : [];
+
+  return { body: text, choices: [] };
+}
+
+function extractChoices(text) {
+  return splitChoices(text).choices;
 }
 
 function escapeHtml(str) {
