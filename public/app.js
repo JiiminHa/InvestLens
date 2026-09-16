@@ -277,7 +277,7 @@ function paintWorkspaceCenter(center, recent) {
         const choiceKeys = new Set(choices.map(c => c.key));
         const filteredLines = lines.filter(line => {
           const trimmed = line.trimStart();
-          const optionMatch = trimmed.match(/^([A-C])[.):]\s+(.+)$/);
+          const optionMatch = trimmed.match(/^([A-C])[.):]\s*(.+)$/);
           if (optionMatch && choiceKeys.has(optionMatch[1])) {
             return false;
           }
@@ -296,7 +296,7 @@ function paintWorkspaceCenter(center, recent) {
         quickRepliesHtml = `<div class="ws-quick-replies">${buttonsHtml}</div>`;
       }
 
-      return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}"${idx === lastCoachIndex && quickRepliesHtml ? " has-quick-replies" : ""}" data-turn-idx="${idx}">
+      return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}${idx === lastCoachIndex && quickRepliesHtml ? " has-quick-replies" : ""}" data-turn-idx="${idx}">
           <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
           <div class="ws-chat-bubble">${bubbleContent}</div>
           ${quickRepliesHtml}
