@@ -188,7 +188,15 @@ function paintWorkspaceCenter(center, recent) {
   }
 
   if (!state.selectedTheme) {
-    center.innerHTML = `<div class="ws-scene-card ws-empty">관심 주제를 고르면, 실제 시장 장면을 놓고 코치와 대화하며 스스로 판단해보는 학습 앱입니다.<div style="font-size:0.85em;color:var(--muted-foreground);margin-top:6px;">왼쪽에서 주제를 선택해 시작하세요.</div></div>`;
+    center.innerHTML = `
+      <div class="ws-onboarding">
+        <ol class="ws-onboarding-steps">
+          <li>왼쪽에서 관심 주제를 고릅니다</li>
+          <li>코치와 대화하며 시장 장면을 함께 봅니다</li>
+          <li>내 판단과 결정을 정리해 노트로 남깁니다</li>
+        </ol>
+        <p class="ws-onboarding-prompt">지금 왼쪽에서 주제를 하나 골라보세요.</p>
+      </div>`;
     return;
   }
 
@@ -224,6 +232,10 @@ function paintWorkspaceCenter(center, recent) {
             <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
           </label>
           <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+        </div>
+        <div class="ws-start-hint">
+          <p class="ws-start-hint-line">아래 장면을 읽고 '학습 시작'을 누르면 코치가 질문을 던집니다.</p>
+          <p class="ws-start-hint-line">직접 가진 기업 리포트가 있다면 붙여넣어도 됩니다. 붙여넣으면 그 내용으로 학습합니다.</p>
         </div>
       </article>
     `;
@@ -261,7 +273,7 @@ function paintWorkspaceCenter(center, recent) {
         <div class="ws-answer-input">
           <label class="ws-input-group">
             <span class="ws-input-label">내 답변</span>
-            <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
+            <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 자유롭게 답해보세요. 정답이 없어도 됩니다."></textarea>
           </label>
           <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
         </div>
@@ -306,6 +318,7 @@ function paintWorkspaceRight(right) {
           <div class="ws-summary-item"><div class="ws-summary-label">판단</div><div class="ws-summary-value">${escapeHtml(summary.judgment ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">결정</div><div class="ws-summary-value">${escapeHtml(summary.decisionAction ?? "-")}</div></div>
         </div><div class="ws-final">${escapeHtml(state.finalMessage)}</div>
+        <div class="ws-storage-note">이 학습은 왼쪽 '과거 학습 노트'에 저장됩니다. 다음 학습에서 코치가 이 기록을 참고합니다.</div>
       </div>`;
     return;
   }
@@ -318,13 +331,15 @@ function paintWorkspaceRight(right) {
   right.innerHTML = `
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">코치 질문</h2>
+      ${!state.currentSession ? "" : `<div class="ws-learn-hint">대화를 충분히 나누면 오른쪽의 '판단 정리하고 끝내기'로 마무리합니다.</div>`}
       <div class="ws-completion-bar">
         <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
           ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
         </button>
       </div>
       <div class="ws-completion-panel" id="wsCompletionPanel" hidden>
-        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
+        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea><div class="ws-field-hint">이 장면을 어떻게 봤는지 내 문장으로 적어보세요.</div></label>
+        <div class="ws-decision-hint">지금 시점의 결정을 고르세요. 실제 투자 여부와 무관합니다.</div>
         <div class="ws-decision-options" id="wsDecisions">
           ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
         </div>
