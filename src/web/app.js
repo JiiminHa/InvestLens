@@ -33,6 +33,7 @@ let state = {
   selectedCompany: null,
   selectedPastSession: null,
   currentSession: null,
+  userCompletionOpen: false,
   themes: [],
   reconnectionData: null,
   fixture: null,
@@ -238,19 +239,27 @@ function paintWorkspaceRight(right) {
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">코치 질문</h2>
       <div class="ws-chat-list">${chatHtml}</div>
+      <div class="ws-completion-bar">
+        <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
+          ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
+        </button>
+        <span class="ws-mock-status" id="wsFixtureStatus"></span>
+      </div>
+      <div class="ws-completion-panel" id="wsCompletionPanel" hidden>
+        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
+        <div class="ws-decision-options" id="wsDecisions">
+          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
+        </div>
+        <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
+        <button class="ws-btn ws-btn-ghost" id="wsCompletionCancel" type="button">닫기</button>
+      </div>
       ${!readyToComplete ? `
         <label class="ws-input-group">
           <span class="ws-input-label">내 답변</span>
           <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
         </label>
         <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
-      ` : `
-        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
-        <div class="ws-decision-options" id="wsDecisions">
-          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
-        </div>
-        <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
-      `}
+      ` : ""}
     </div>`;}
 
 function bindWorkspaceEvents(recent) {
@@ -378,6 +387,33 @@ function bindWorkspaceEvents(recent) {
         showError($id("app"), "학습 완료 중 오류가 발생했습니다.", err);
       }
     });
+  }
+
+  const completionToggle = $id("wsCompletionToggle");
+  const completionPanel = $id("wsCompletionPanel");
+  const completionCancel = $id("wsCompletionCancel");
+  const fixtureStatusEl = $id("wsFixtureStatus");
+  if (completionToggle && completionPanel && completionCancel && fixtureStatusEl) {
+    completionToggle.addEventListener("click", () => {
+      const open = !completionPanel.hasAttribute("hidden");
+      completionPanel.toggleAttribute("hidden", open);
+      completionToggle.textContent = open ? (state.currentSession?.readyToComplete === true ? "판단 정리하기" : "판단 정리하고 끝내기") : "닫기";
+    });
+    completionCancel.addEventListener("click", () => {
+      completionPanel.setAttribute("hidden", "");
+      completionToggle.textContent = state.currentSession?.readyToComplete === true ? "판단 정리하기" : "판단 정리하고 끝내기";
+    });
+    if (state.currentSession?.readyToComplete === true) {
+      completionPanel.toggleAttribute("hidden", false);
+      completionToggle.textContent = "판단 정리하기";
+    }
+    const fixture = state.fixture;
+    if (fixture && fixture.status) {
+      const label = fixture.status === "unverified_mock" ? "미검증(mock) 데이터" : "검증된 데이터";
+      fixtureStatusEl.textContent = label;
+    } else {
+      fixtureStatusEl.textContent = "";
+    }
   }
 }
 

@@ -67,6 +67,37 @@ async function callSolar(
   return content;
 }
 
+const EXTRACTION_SYSTEM = [
+  "당신은 기업 리포트 텍스트에서 투자 코치가 바로 쓸 수 있는 핵심 데이터포인트만 추출하는 추출기이다.",
+  "아래 리포트 텍스트를 읽고, 아래 항목만 짧고 구조화된 텍스트 블록으로 출력한다.",
+  "추측하지 말고 텍스트에 명시된 정보만 쓴다. 불확실하면 '확인 불가'로 표기한다.",
+  "",
+  "출력 형식(정확히 이 구조를 따른다):",
+  "- 기업명/티커: ",
+  "- 실적(actual): ",
+  "- 컨센서스/기대: ",
+  "- 성장률: ",
+  "- 밸류에이션 참고: ",
+  "- 시장 반응/기대 요약: ",
+  "- 확인 불가/불명확: ",
+  "",
+  "규칙:",
+  "- 서술형 해설 말고 데이터 위주로 쓴다.",
+  "- 숫자와 단위를 명확히 하고, actual과 consensus를 구분한다.",
+  "- 리포트에 없는 항목을 창작하지 않는다.",
+  "- 출력은 위 항목 줄만 낸다. 추가 설명 금지.",
+].join("\n");
+
+async function extractInvestmentDataPool(reportText: string): Promise<string> {
+  console.log("[coachService] 리포트 데이터 추출 시작 — 텍스트 길이:" + reportText.length);
+  const content = await callSolar([
+    { role: "system", content: EXTRACTION_SYSTEM },
+    { role: "user", content: "아래 기업 리포트 텍스트에서 핵심 데이터포인트만 추출하라.\n\n" + reportText },
+  ]);
+  console.log("[coachService] 리포트 데이터 추출 완료 — 추출 결과 길이:" + content.length);
+  return content;
+}
+
 function buildPastLines(pastLearningContext: PastLearningContext): string {
   const lines = pastLearningContext.recentSessions.map((s) => {
     return (
@@ -94,14 +125,20 @@ function buildPastContextBlock(pastLearningContext: PastLearningContext): string
 function buildUserPrompt(
   session: LearningSession,
   marketFixture: MarketSceneFixture,
-  pastContextBlock: string
+  pastContextBlock: string,
+  dataPool?: string
 ): string {
   const parts: string[] = [];
   parts.push("## 현재 고객 요청");
   parts.push("- 기업/테마: " + session.companyId);
-  parts.push("- 시장 장면: " + marketFixture.scene);
-  if (marketFixture.numbers) {
-    parts.push("- 참고 숫자/정보: " + marketFixture.numbers);
+  if (dataPool) {
+    parts.push("- 데이터 포인트 풀(추출 결과):");
+    parts.push(dataPool);
+  } else {
+    parts.push("- 시장 장면: " + marketFixture.scene);
+    if (marketFixture.numbers) {
+      parts.push("- 참고 숫자/정보: " + marketFixture.numbers);
+    }
   }
   if (marketFixture.status === "unverified_mock") {
     parts.push("- 참고: 이 장면은 wiring 테스트용 미검증 목업이다. 현재 턴에서는 장면 자체가 아니라 코칭 구조를 확인하는 데 집중해라.");
@@ -137,11 +174,16 @@ export async function callBeginnerStockCoach(
     marketFixture: MarketSceneFixture;
     userAnswer?: string;
     conversationTurns?: Array<{ role: "coach" | "user"; content: string }>;
+    reportText?: string;
   }
 ): Promise<{ message: string; isQuestionTurn: boolean; readyToComplete: boolean }> {
   const pastContextBlock = buildPastContextBlock(input.pastLearningContext);
   const system = buildFirstTurnSystemPrompt();
-  const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock);
+  let dataPool: string | undefined;
+  if (input.reportText) {
+    dataPool = await extractInvestmentDataPool(input.reportText);
+  }
+  const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock, dataPool);
 
   const content = await callSolar([
     { role: "system", content: system },

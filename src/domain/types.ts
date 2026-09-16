@@ -13,6 +13,7 @@ export type LensId =
   | "risk_breaks_my_logic";
 
 export type LensStatus = "처음_봄" | "이해함" | "적용해봄";
+export type FixtureStatus = "unverified_mock" | "verified";
 
 export type DecisionAction = "투자함" | "투자하지 않음" | "공부만 함";
 
@@ -83,6 +84,8 @@ export interface LearningSession {
   judgment: string | null;
   referencedSessionIds: string[];
   createdAt: string;
+  // 세션 시작 시 사용한 원본 fixture의 status (mock/검증 구분 보존용)
+  fixtureStatus: FixtureStatus | null;
 }
 
 export interface SessionSummary {
