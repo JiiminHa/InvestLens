@@ -256,15 +256,45 @@ function paintWorkspaceCenter(center, recent) {
 
   // 학습 중: 접을 수 있는 시장 장면 + 대화 목록 + 답변 입력창
   const turns = state.currentSession.turns ?? [];
-  const chatHtml = turns.length
-    ? turns.map((turn) => {
-        const isCoach = turn.role === "coach";
-        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+  let chatHtml = "";
+  if (turns.length) {
+    const lastCoachIndex = turns.reduce((lastIdx, turn, idx) => (turn.role === "coach" ? idx : lastIdx), -1);
+    const hasUserAfterLastCoach = lastCoachIndex >= 0 && lastCoachIndex < turns.length - 1 &&
+      turns[lastCoachIndex + 1]?.role === "user";
+    const isCompleted = state.phase === "completed";
+    const lastCoachTurn = lastCoachIndex >= 0 ? turns[lastCoachIndex] : null;
+    const choices = lastCoachTurn && !hasUserAfterLastCoach && !isCompleted
+      ? extractChoices(lastCoachTurn.content)
+      : [];
+
+    chatHtml = turns.map((turn, idx) => {
+      const isCoach = turn.role === "coach";
+      let bubbleContent = isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content);
+
+      let quickRepliesHtml = "";
+      if (isCoach && idx === lastCoachIndex && !hasUserAfterLastCoach && !isCompleted && choices.length) {
+        const filteredContent = splitChoices(turn.content).body;
+        const escapedChoices = choices.map(c => ({
+          key: c.key,
+          label: c.label,
+          escapedLabel: escapeHtml(c.key + ". " + c.label),
+        }));
+        const buttonsHtml = escapedChoices.map(c =>
+          `<button type="button" class="ws-chip" data-choice="${escapeHtml(c.key + ". " + c.label)}">${c.escapedLabel}</button>`
+        ).join("");
+        bubbleContent = isCoach ? renderCoachText(filteredContent) : escapeHtml(filteredContent);
+        quickRepliesHtml = `<div class="ws-quick-replies">${buttonsHtml}</div>`;
+      }
+
+      return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}${idx === lastCoachIndex && quickRepliesHtml ? " has-quick-replies" : ""}" data-turn-idx="${idx}">
           <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
-          <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
+          <div class="ws-chat-bubble">${bubbleContent}</div>
+          ${quickRepliesHtml}
         </div>`;
-      }).join("")
-    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
+    }).join("");
+  } else {
+    chatHtml = `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
+  }
 
   const hasFixture = !!(state.fixture?.scene);
   center.innerHTML = `
@@ -364,6 +394,34 @@ function paintWorkspaceRight(right) {
     </div>`;
 }
 
+async function sendAnswer(text) {
+  if (!text || !state.currentSession) return null;
+  const sendAnswerBtn = $id("wsSendAnswerBtn");
+  const userAnswerTextarea = $id("wsUserAnswer");
+  if (sendAnswerBtn) { sendAnswerBtn.disabled = true; sendAnswerBtn.textContent = "답변 중…"; }
+  try {
+    const result = await postJSON("/api/learning/respond", {
+      sessionId: state.currentSession.sessionId,
+      userAnswer: text,
+    });
+    state.currentSession = {
+      ...state.currentSession,
+      turns: result.turns ?? [],
+      readyToComplete: result.readyToComplete === true,
+    };
+    if (userAnswerTextarea) userAnswerTextarea.value = "";
+    paintWorkspace();
+    const chatList = $id("wsChatList");
+    if (chatList) chatList.scrollTop = chatList.scrollHeight;
+    return result;
+  } catch (err) {
+    showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
+    return null;
+  } finally {
+    if (sendAnswerBtn) { sendAnswerBtn.disabled = false; sendAnswerBtn.textContent = "답변 보내기"; }
+  }
+}
+
 function bindWorkspaceEvents(recent) {
   document.querySelectorAll("[data-ws-theme]").forEach((button) => button.addEventListener("click", async () => {
     const theme = state.themes.find((item) => item.id === button.dataset.wsTheme);
@@ -442,32 +500,18 @@ function bindWorkspaceEvents(recent) {
     }
   });
 
-  const sendAnswerBtn = $id("wsSendAnswerBtn");
-  const userAnswerTextarea = $id("wsUserAnswer");
-  sendAnswerBtn?.addEventListener("click", async () => {
+  $id("wsSendAnswerBtn")?.addEventListener("click", async () => {
+    const userAnswerTextarea = $id("wsUserAnswer");
     const answer = (userAnswerTextarea?.value ?? "").trim();
-    if (!answer || !state.currentSession) return;
-    sendAnswerBtn.disabled = true;
-    sendAnswerBtn.textContent = "답변 중…";
-    try {
-      const result = await postJSON("/api/learning/respond", {
-        sessionId: state.currentSession.sessionId,
-        userAnswer: answer,
-      });
-      state.currentSession = {
-        ...state.currentSession,
-        turns: result.turns ?? [],
-        readyToComplete: result.readyToComplete === true,
-      };
-      if (userAnswerTextarea) userAnswerTextarea.value = "";
-      paintWorkspace();
-      const chatList = $id("wsChatList");
-      if (chatList) chatList.scrollTop = chatList.scrollHeight;
-    } catch (err) {
-      showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
-    } finally {
-      if (sendAnswerBtn) { sendAnswerBtn.disabled = false; sendAnswerBtn.textContent = "답변 보내기"; }
-    }
+    await sendAnswer(answer);
+  });
+
+  document.querySelectorAll(".ws-chip[data-choice]").forEach((chip) => {
+    chip.addEventListener("click", async () => {
+      const choice = chip.dataset.choice;
+      document.querySelectorAll(".ws-chip[data-choice]").forEach((c) => c.setAttribute("disabled", ""));
+      await sendAnswer(choice);
+    });
   });
 
   const judgment = $id("wsJudgment");
@@ -1106,6 +1150,48 @@ function showError(root, message, err) {
     state = { screen: "themes" };
     render();
   });
+}
+
+// 코치 메시지를 본문과 선택지로 나눈다.
+// 선택지가 줄마다 "A. …"로 오는 경우와, 한 줄에 "질문? A. … B. … C. …"로 이어 오는 경우를 모두 처리한다.
+function splitChoices(text) {
+  const lines = text.split("\n");
+
+  const lineChoices = [];
+  const bodyLines = [];
+  for (const line of lines) {
+    const match = line.trimStart().match(/^([A-C])[.):]\s*(.+)$/);
+    if (match) lineChoices.push({ key: match[1], label: match[2].trim() });
+    else bodyLines.push(line);
+  }
+  if (lineChoices.length >= 2) {
+    return { body: bodyLines.join("\n").trim(), choices: lineChoices };
+  }
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    const start = line.search(/(?:^|\s)A[.)]\s/);
+    if (start < 0 || !/\sB[.)]\s/.test(line.slice(start))) continue;
+    const tokens = line.slice(start).split(/(?:^|\s)([A-C])[.)]\s+/);
+    const choices = [];
+    for (let j = 1; j < tokens.length; j += 2) {
+      const label = (tokens[j + 1] ?? "").trim();
+      if (label) choices.push({ key: tokens[j], label });
+    }
+    if (choices.length >= 2) {
+      const head = line.slice(0, start).trim();
+      const bodyOut = lines.slice();
+      if (head) bodyOut[i] = head;
+      else bodyOut.splice(i, 1);
+      return { body: bodyOut.join("\n").trim(), choices };
+    }
+  }
+
+  return { body: text, choices: [] };
+}
+
+function extractChoices(text) {
+  return splitChoices(text).choices;
 }
 
 function escapeHtml(str) {

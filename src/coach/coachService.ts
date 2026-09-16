@@ -175,6 +175,7 @@ function buildUserPrompt(
   parts.push("");
   parts.push("## 출력");
   parts.push("대화형 코칭 응답만 돌려줘. 끝에 판단 질문 하나를 넣어라.");
+  parts.push("판단 질문 바로 아래에 선택지를 2~3개 제시하라. 각 선택지는 반드시 새 줄에서 'A. ', 'B. ', 'C. '로 시작하는 한 줄로 쓴다. 선택지를 질문 문장 안에 이어 쓰거나 'A/B로 답해라'처럼 쓰지 마라. 선택지 뒤에는 아무 문장도 덧붙이지 마라.");
   return parts.join("\n");
 }
 
