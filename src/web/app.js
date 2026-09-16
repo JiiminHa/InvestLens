@@ -328,13 +328,13 @@ function bindWorkspaceEvents(recent) {
     button.textContent = "시작하는 중…";
     try {
       const reportText = ($id("wsReportText")?.value ?? "").trim();
-      if (reportText) state.reportUsed = true;
       const result = await postJSON("/api/learning/start", {
         userId: "demo_user",
         themeId: state.selectedTheme.id,
         companyId: state.selectedCompany.id,
         reportText: reportText || undefined,
       });
+      if (reportText) state.reportUsed = true;
       state.currentSession = {
         sessionId: result.sessionId,
         turns: [
