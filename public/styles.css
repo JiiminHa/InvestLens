@@ -652,12 +652,12 @@ details summary {
 /* ── InvestLens workspace ─────────────────────────────────────────── */
 
 body.ws-open {
-  --ws-bg: #faf9fe;
-  --ws-panel: #f2effb;
+  --ws-bg: #fbfbfc;
+  --ws-panel: #f4f4f7;
   --ws-surface: #ffffff;
-  --ws-surface-soft: #f8f7fd;
-  --ws-border: #dcd5f5;
-  --ws-border-strong: #c4b8f0;
+  --ws-surface-soft: #f8f8fa;
+  --ws-border: #e5e5ea;
+  --ws-border-strong: #c8cbd6;
   --ws-text: #202538;
   --ws-muted: #6a6f82;
   --ws-faint: #8f95a8;

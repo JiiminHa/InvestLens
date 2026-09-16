@@ -1,5 +1,6 @@
 import fs from "fs";
 import { MarketSceneFixture } from "../fixtures/marketSceneFixtures";
+import { SKILL_TEXT_FALLBACK } from "./skillText";
 import {
   PastLearningContext,
   LearningSession,
@@ -11,13 +12,21 @@ import {
 
 const SKILL_MD_PATH = ".hermes/skills/beginner-stock-coach/SKILL.md";
 
-if (!fs.existsSync(SKILL_MD_PATH)) {
-  throw new Error(
-    "초기에 Skill 파일을 읽지 못했습니다: " + SKILL_MD_PATH + ". 프로젝트 루트의 .hermes/skills/beginner-stock-coach/SKILL.md가 필요합니다."
-  );
+// 로컬에서는 SKILL.md 원본을 읽고, 읽을 수 없으면(서버리스 번들 등) 사본을 쓴다.
+// 서버리스 환경에서는 .hermes 디렉터리가 함수 번들에 포함되지 않아 파일 읽기가 실패한다.
+function loadSkillText(): string {
+  try {
+    if (fs.existsSync(SKILL_MD_PATH)) {
+      return fs.readFileSync(SKILL_MD_PATH, "utf-8");
+    }
+  } catch (error) {
+    console.warn("[coachService] SKILL.md 읽기 실패, 번들 사본 사용:", error);
+  }
+  console.log("[coachService] SKILL.md 파일 미발견 — 번들 사본(skillText.ts) 사용");
+  return SKILL_TEXT_FALLBACK;
 }
 
-const SKILL_TEXT = fs.readFileSync(SKILL_MD_PATH, "utf-8");
+const SKILL_TEXT = loadSkillText();
 
 const UPSTAGE_API_KEY = process.env.UPSTAGE_API_KEY;
 const UPSTAGE_BASE_URL =
