@@ -192,23 +192,81 @@ function paintWorkspaceCenter(center, recent) {
     return;
   }
 
+  // 학습 완료 상태: 기존처럼 시장 장면 카드 + 그래프
+  if (state.phase === "completed") {
+    const hasFixture = !!(state.fixture?.scene);
+    center.innerHTML = `
+      <article class="ws-scene-card">
+        <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+        <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+        ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+        ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+        ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+      </article>
+      ${workspaceGraph(recent)}
+    `;
+    return;
+  }
+
+  // 학습 시작 전: 시장 장면 카드 + 리포트 붙여넣기
+  if (!state.currentSession) {
+    const hasFixture = !!(state.fixture?.scene);
+    center.innerHTML = `
+      <article class="ws-scene-card">
+        <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+        <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+        ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+        ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+        ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+        <div class="ws-report-input">
+          <label class="ws-input-group">
+            <span class="ws-input-label">기업 리포트 붙여넣기</span>
+            <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
+          </label>
+          <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  // 학습 중: 접을 수 있는 시장 장면 + 대화 목록 + 답변 입력창
+  const turns = state.currentSession.turns ?? [];
+  const chatHtml = turns.length
+    ? turns.map((turn) => {
+        const isCoach = turn.role === "coach";
+        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+          <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
+          <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
+        </div>`;
+      }).join("")
+    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
+
   const hasFixture = !!(state.fixture?.scene);
   center.innerHTML = `
-    <article class="ws-scene-card">
-      <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
-      <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
-      ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
-      ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
-      ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
-      <div class="ws-report-input">
-        <label class="ws-input-group">
-          <span class="ws-input-label">기업 리포트 붙여넣기</span>
-          <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
-        </label>
-        <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+    <div class="ws-center-layout">
+      <details class="ws-scene-details">
+        <summary class="ws-scene-summary">이번 시장 장면 보기</summary>
+        <div class="ws-scene-card">
+          <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+          <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+          ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+          ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+          ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+        </div>
+      </details>
+      <div class="ws-chat-area">
+        <h2 class="ws-coach-heading">코치 질문</h2>
+        <div class="ws-chat-list" id="wsChatList">${chatHtml}</div>
+        <div class="ws-answer-input">
+          <label class="ws-input-group">
+            <span class="ws-input-label">내 답변</span>
+            <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
+          </label>
+          <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+        </div>
       </div>
-    </article>
-    ${state.phase === "completed" ? workspaceGraph(recent) : ""}
+    </div>
   `;
 }
 
@@ -255,28 +313,15 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `<div class="ws-coach-panel"><h2 class="ws-coach-heading">코치</h2><div class="ws-coach-message placeholder">시장 장면을 확인한 뒤 학습을 시작하세요.</div><button class="ws-btn ws-btn-primary" id="wsStartBtn" ${state.fixture ? "" : "disabled"}>학습 시작</button></div>`;
     return;
   }
-  const turns = state.currentSession.turns ?? [];
   const readyToComplete = state.currentSession.readyToComplete === true;
-
-  const chatHtml = turns.length
-    ? turns.map((turn) => {
-        const isCoach = turn.role === "coach";
-        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
-          <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
-          <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
-        </div>`;
-      }).join("")
-    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
 
   right.innerHTML = `
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">코치 질문</h2>
-      <div class="ws-chat-list">${chatHtml}</div>
       <div class="ws-completion-bar">
         <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
           ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
         </button>
-        <span class="ws-mock-status" id="wsFixtureStatus"></span>
       </div>
       <div class="ws-completion-panel" id="wsCompletionPanel" hidden>
         <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
@@ -287,13 +332,10 @@ function paintWorkspaceRight(right) {
         <button class="ws-btn ws-btn-ghost" id="wsCompletionCancel" type="button">닫기</button>
       </div>
       ${!readyToComplete ? `
-        <label class="ws-input-group">
-          <span class="ws-input-label">내 답변</span>
-          <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
-        </label>
-        <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+        <div class="ws-coach-message placeholder">대화를 이어가세요. 답변을 보내고 코치의 피드백을 확인하세요.</div>
       ` : ""}
-    </div>`;}
+    </div>`;
+}
 
 function bindWorkspaceEvents(recent) {
   document.querySelectorAll("[data-ws-theme]").forEach((button) => button.addEventListener("click", async () => {
@@ -392,6 +434,8 @@ function bindWorkspaceEvents(recent) {
       };
       if (userAnswerTextarea) userAnswerTextarea.value = "";
       paintWorkspace();
+      const chatList = $id("wsChatList");
+      if (chatList) chatList.scrollTop = chatList.scrollHeight;
     } catch (err) {
       showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
     } finally {
@@ -433,8 +477,7 @@ function bindWorkspaceEvents(recent) {
   const completionToggle = $id("wsCompletionToggle");
   const completionPanel = $id("wsCompletionPanel");
   const completionCancel = $id("wsCompletionCancel");
-  const fixtureStatusEl = $id("wsFixtureStatus");
-  if (completionToggle && completionPanel && completionCancel && fixtureStatusEl) {
+  if (completionToggle && completionPanel && completionCancel) {
     completionToggle.addEventListener("click", () => {
       const open = !completionPanel.hasAttribute("hidden");
       completionPanel.toggleAttribute("hidden", open);
@@ -447,13 +490,6 @@ function bindWorkspaceEvents(recent) {
     if (state.currentSession?.readyToComplete === true) {
       completionPanel.toggleAttribute("hidden", false);
       completionToggle.textContent = "판단 정리하기";
-    }
-    const fixture = state.fixture;
-    if (fixture && fixture.status) {
-      const label = fixture.status === "unverified_mock" ? "예시 데이터" : "리포트 기반 데이터";
-      fixtureStatusEl.textContent = label;
-    } else {
-      fixtureStatusEl.textContent = "";
     }
   }
 }

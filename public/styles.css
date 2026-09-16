@@ -648,7 +648,6 @@ details summary {
 
 /* ── 워크스페이스 레이아웃 ── */
 
-
 /* ── InvestLens workspace ─────────────────────────────────────────── */
 
 body.ws-open {
@@ -841,10 +840,96 @@ body.ws-open .shell-main {
 
 .ws-central {
   overflow: auto;
-  padding: 34px clamp(24px, 5vw, 72px) 64px;
+  padding: 24px clamp(24px, 5vw, 56px) 48px;
   background: var(--ws-surface);
   scrollbar-width: thin;
   scrollbar-color: var(--ws-border-strong) transparent;
+}
+
+.ws-center-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.ws-scene-details {
+  margin: 0 auto;
+}
+
+.ws-scene-summary {
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid var(--ws-border);
+  border-radius: 8px;
+  background: var(--ws-surface);
+  color: var(--ws-text);
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ws-scene-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ws-scene-summary::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border-right: 2px solid var(--ws-muted);
+  border-bottom: 2px solid var(--ws-muted);
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.ws-scene-details[open] .ws-scene-summary::after {
+  transform: rotate(-135deg);
+}
+
+.ws-scene-details[open] .ws-scene-summary {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: 1px solid var(--ws-border);
+}
+
+.ws-chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ws-surface);
+  border: 1px solid var(--ws-border);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.ws-chat-area > .ws-coach-heading {
+  margin: 0 0 10px;
+}
+
+.ws-chat-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none;
+  min-height: 200px;
+}
+
+.ws-answer-input {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ws-border);
+}
+
+.ws-answer-input .ws-btn {
+  align-self: flex-end;
 }
 
 .ws-section + .ws-section {
