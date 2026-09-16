@@ -21,6 +21,7 @@ export interface CreateSessionInput {
   marketScene: string;
   marketNumbers: string;
   fixtureStatus: import("../domain/types").FixtureStatus;
+  dataPool?: string | null;
 }
 
 export function createLearningSession(
@@ -33,6 +34,7 @@ export function createLearningSession(
     companyId: input.companyId,
     marketScene: input.marketScene,
     marketNumbers: input.marketNumbers,
+    dataPool: input.dataPool ?? null,
     coachLensUsedId: null,
     lensName: null,
     lensStatusAfter: null,
