@@ -250,6 +250,7 @@ const server = http.createServer(async (req, res) => {
       readyToComplete: result.readyToComplete,
       turns: result.session.turns,
       phase: result.session.phase,
+      fixtureStatus: result.session.fixtureStatus,
     });
     return;
   }

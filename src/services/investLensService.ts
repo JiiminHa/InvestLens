@@ -7,6 +7,7 @@ import {
   saveSession,
 } from "./sessionManager";
 import { callBeginnerStockCoach, callBeginnerStockCoachSummary } from "../coach/coachService";
+import { buildPastLearningContext } from "../services/learningContextBuilder";
 
 export interface PreparedSessionInput {
   userId: string;
@@ -49,6 +50,7 @@ export async function startLearningTurn(
     companyId: input.companyId,
     marketScene: input.marketScene,
     marketNumbers: input.marketNumbers,
+    fixtureStatus: input.fixture.status,
   });
 
   const effectiveCoachCall = coachCall ?? callBeginnerStockCoach;
@@ -203,17 +205,12 @@ export async function respond(
   try {
     turnResponse = await effectiveCoachCall({
       session: updatedAfterUser,
-      pastLearningContext: {
-        userId: updatedAfterUser.userId,
-        recentSessions: [], // 실제 구현 시 과거 맥락 주입 필요
-        lensStates: [],
-        candidateStates: [],
-      },
+      pastLearningContext: buildPastLearningContext(updatedAfterUser.userId),
       marketFixture: {
         companyId: updatedAfterUser.companyId,
         scene: updatedAfterUser.marketScene,
         numbers: updatedAfterUser.marketNumbers,
-        status: "verified",
+        status: updatedAfterUser.fixtureStatus ?? "unverified_mock",
       },
       userAnswer,
       conversationTurns: updatedAfterUser.turns,
