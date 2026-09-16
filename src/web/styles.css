@@ -1008,6 +1008,21 @@ body.ws-open .shell-main {
   text-transform: uppercase;
 }
 
+.ws-report-input {
+  margin-top: 22px;
+}
+
+.ws-report-note {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border);
+  border-radius: 5px;
+  background: var(--ws-surface-soft);
+  color: var(--ws-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .ws-mock-note {
   width: min(100%, 760px);
   margin: 14px auto 0;
