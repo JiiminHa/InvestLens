@@ -879,10 +879,12 @@ body.ws-open .shell-main {
 
 .ws-scene-summary::after {
   content: "";
-  width: 16px;
-  height: 16px;
-  border-right: 2px solid var(--ws-muted);
-  border-bottom: 2px solid var(--ws-muted);
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid var(--ws-muted);
+  border-bottom: 1.5px solid var(--ws-muted);
+  flex-shrink: 0;
+  margin-left: 8px;
   transform: rotate(45deg);
   transition: transform 160ms ease;
 }
@@ -1423,7 +1425,7 @@ body.ws-open .shell-main {
   overflow-wrap: anywhere;
 }
 
-|.ws-final {
+.ws-final {
   padding: 11px 12px;
   border-left: 3px solid var(--ws-accent);
   background: var(--ws-surface);

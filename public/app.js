@@ -268,7 +268,7 @@ function paintWorkspaceCenter(center, recent) {
         </div>
       </details>
       <div class="ws-chat-area">
-        <h2 class="ws-coach-heading">코치 질문</h2>
+        <h2 class="ws-coach-heading">코치와의 대화</h2>
         <div class="ws-chat-list" id="wsChatList">${chatHtml}</div>
         <div class="ws-answer-input">
           <label class="ws-input-group">
@@ -330,8 +330,8 @@ function paintWorkspaceRight(right) {
 
   right.innerHTML = `
     <div class="ws-coach-panel">
-      <h2 class="ws-coach-heading">코치 질문</h2>
-      ${!state.currentSession ? "" : `<div class="ws-learn-hint">대화를 충분히 나누면 오른쪽의 '판단 정리하고 끝내기'로 마무리합니다.</div>`}
+      <h2 class="ws-coach-heading">판단 정리</h2>
+      ${!state.currentSession ? "" : `<div class="ws-learn-hint">대화를 충분히 나눴다면 아래 버튼으로 마무리하세요.</div>`}
       <div class="ws-completion-bar">
         <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
           ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
