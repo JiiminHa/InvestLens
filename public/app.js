@@ -3,6 +3,7 @@
  * 이번 MVP에서는 fixture 기반 시장 장면과 서버 mock coach만 사용한다.
  */
 
+
 const $ = (sel, root) => (root ?? document).querySelector(sel);
 
 // 코치 응답에 섞여 오는 최소한의 마크다운만 처리한다. escape 후에 변환하므로 안전하다.
@@ -142,7 +143,7 @@ function paintWorkspace() {
         ${state.themes.map((theme) => `
           <button type="button" class="ws-theme-item ${state.selectedTheme?.id === theme.id ? "active" : ""}" data-ws-theme="${escapeHtml(theme.id)}">
             ${escapeHtml(theme.name)}
-            <div class="ws-theme-meta">${escapeHtml(theme.companies.map((company) => company.name).join(", "))}</div>
+            <div class="ws-theme-meta">${escapeHtml(theme.description ?? "")}</div>
           </button>
         `).join("")}
       </div>
@@ -175,12 +176,23 @@ function paintWorkspace() {
 function paintWorkspaceCenter(center, recent) {
   if (state.selectedPastSession) {
     const note = state.selectedPastSession;
+    const turnsHtml = (note.turns?.length ?? 0)
+      ? `<div class="ws-note-turns"><div class="ws-note-label">그때의 대화</div><div class="ws-note-turns-list">${note.turns.map((turn) => {
+          const isCoach = turn.role === "coach";
+          return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+            <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
+            <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
+          </div>`;
+        }).join("")}</div></div>`
+      : "";
     center.innerHTML = `
       <article class="ws-scene-card">
         <h2 class="ws-scene-title">${escapeHtml(note.companyName)} 학습 노트</h2>
+        ${note.marketNumbers ? `<div class="ws-note-detail"><div class="ws-note-label">시장 수치</div><pre class="ws-note-numbers">${escapeHtml(note.marketNumbers)}</pre></div>` : ""}
         <div class="ws-note-detail"><div class="ws-note-label">사용한 렌즈 (판단 기준)</div>${escapeHtml(note.lensName)}</div>
-        <div class="ws-note-detail"><div class="ws-note-label">판단</div>${escapeHtml(note.judgment)}</div>
+        <div class="ws-note-detail"><div class="ws-note-label">내 판단</div>${escapeHtml(note.judgment)}</div>
         <div class="ws-note-detail"><div class="ws-note-label">결정</div>${escapeHtml(note.decisionAction)}</div>
+        ${turnsHtml}
       </article>
       ${state.phase === "completed" ? workspaceGraph(recent) : ""}
     `;
