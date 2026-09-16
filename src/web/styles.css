@@ -1266,6 +1266,39 @@ body.ws-open .shell-main {
   cursor: not-allowed;
 }
 
+.ws-btn-ghost {
+  background: transparent;
+  border-color: var(--ws-border);
+  color: var(--ws-muted);
+}
+
+.ws-btn-ghost:hover {
+  background: var(--ws-surface-soft);
+  border-color: var(--ws-border-strong);
+  color: var(--ws-text);
+}
+
+.ws-completion-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ws-border);
+}
+
+.ws-completion-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+  background: var(--ws-surface);
+}
+
+.ws-completion-panel[hidden] {
+  display: none;
+}
+
 .ws-summary-grid {
   display: grid;
   gap: 10px;
