@@ -17,6 +17,18 @@ export function seedStore(seededSessions: LearningSession[]) {
   store.sessions = seededSessions.map(s => ({ ...s }));
   store.lensStates = [];
   store.candidateStates = [];
+  // 완료된 시드 세션의 렌즈 기록을 렌즈 상태로도 반영한다.
+  // 이게 없으면 과거 학습이 있어도 "학습한 투자 렌즈"가 비어 보인다.
+  for (const s of seededSessions) {
+    if (s.status === "completed" && s.coachLensUsedId && s.lensStatusAfter) {
+      upsertLensState({
+        userId: s.userId,
+        lensId: s.coachLensUsedId,
+        status: s.lensStatusAfter,
+        lastSeenAt: s.endedAt ?? s.startedAt,
+      });
+    }
+  }
 }
 
 export function getSessions(): LearningSession[] {
