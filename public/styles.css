@@ -1168,6 +1168,7 @@ body.ws-open .shell-main {
 
 .ws-chat-bubble {
   padding: 9px 11px;
+  white-space: pre-wrap;
   border: 1px solid var(--ws-border);
   border-radius: 6px;
   background: var(--ws-surface);

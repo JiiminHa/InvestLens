@@ -4,6 +4,14 @@
  */
 
 const $ = (sel, root) => (root ?? document).querySelector(sel);
+
+// 코치 응답에 섞여 오는 최소한의 마크다운만 처리한다. escape 후에 변환하므로 안전하다.
+function renderCoachText(text) {
+  return escapeHtml(text)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^[-*]\s+/gm, "· ");
+}
 const $id = (id) => document.getElementById(id);
 
 let coachEnv = "mock";
@@ -255,7 +263,7 @@ function paintWorkspaceRight(right) {
         const isCoach = turn.role === "coach";
         return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
           <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
-          <div class="ws-chat-bubble">${escapeHtml(turn.content)}</div>
+          <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
         </div>`;
       }).join("")
     : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
