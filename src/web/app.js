@@ -41,6 +41,7 @@ let state = {
   finalMessage: "",
   leftSidebarOpen: window.matchMedia("(min-width: 761px)").matches,
   rightSidebarOpen: window.matchMedia("(min-width: 761px)").matches,
+  reportUsed: false,
 };
 
 function render() {
@@ -174,7 +175,7 @@ function paintWorkspaceCenter(center, recent) {
       <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
       ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
       ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
-      ${state.fixture?.mockNote ? `<div class="ws-mock-note"><strong>개발용 mock 데이터</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+      ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>개발용 mock 데이터</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
       <div class="ws-report-input">
         <label class="ws-input-group">
           <span class="ws-input-label">기업 리포트 붙여넣기</span>
@@ -282,6 +283,7 @@ function bindWorkspaceEvents(recent) {
     state.finalMessage = "";
     state.phase = "learning";
     state.fixture = null;
+    state.reportUsed = false;
     if (window.matchMedia("(max-width: 760px)").matches) {
       state.leftSidebarOpen = false;
       syncWorkspacePanels();
@@ -332,6 +334,7 @@ function bindWorkspaceEvents(recent) {
         companyId: state.selectedCompany.id,
         reportText: reportText || undefined,
       });
+      if (reportText) state.reportUsed = true;
       state.currentSession = {
         sessionId: result.sessionId,
         turns: [

@@ -2,12 +2,17 @@
 
 세션 시작 시 이 문서를 먼저 읽는다. 세션 종료 시 "이번에 뭘 바꿨는지 / 다음 세션이 뭘 해야 하는지"를 5줄 이내로 아래 로그에 추가한다. 위에서부터 최신순으로 쌓는다.
 
+## 끝낸 것 (이번 세션)
+
+1. 테마 전환 시 reportUsed 초기화 누락 수정 (`dbc0aa8`) — `data-ws-theme` 클릭 핸들러에서 `state.fixture = null;` 아래 `state.reportUsed = false;` 추가. 리포트로 학습한 뒤 다른 테마를 골라도 reportUsed가 true로 남아 mock 안내가 계속 숨겨지던 문제 해결. 3파일 변경, 22줄 추가, npm test 통과 확인 후 커밋.
+
 ## 끝난 것
 
 1. 로깅 + 죽은 코드 정리 (`ce64d8b`) — mock import 제거, 콘솔 로깅, 타입 에러 정리, golden path 통과
 2. 서버 dotenv/serveFile 버그 수정 (`aaa7115`) — `.env`의 `UPSTAGE_API_KEY` 실제 로드, mock/real 배지 정상 표시
 3. 코치 패널 멀티턴 채팅 UI (`d3b85d1`) — `paintWorkspaceRight`/`bindWorkspaceEvents`가 `state.currentSession.turns` 기반으로 렌더링, `/api/learning/respond` 연동. curl로 다턴 검증 완료
 4. SKILL.md 다이어트 (PR #8, `d33e9ff`, 머지됨) — 199줄→72줄, 핵심 3규칙(한 턴 작게/렌즈 하나만/상태 내부 누적)과 렌즈 4개 예시는 유지, 중복 섹션·예시·편집 메모 제거
+5. 워크스페이스 리포트 텍스트 입력 경로 연결 (PR #10, `0d2300f`) — paintWorkspaceCenter에 기업 리포트 붙여넣기 textarea 추가, `/api/learning/start` 페이로드에 `reportText`(선택) 추가, server → investLensService → coachService까지 전달 경로 연결. reportText 없으면 기존 fixture 경로 유지.
 
 ## 남은 것 — 우선순위 순서
 
@@ -47,7 +52,15 @@
 
 ## 로그
 
-### 2026-09-16 — fixtureStatus 누락 타입 에러 수정 + npm test golden path 통과 확인
+### 2026-09-16 — 워크스페이스 리포트 텍스트 입력 경로 연결
+
+- `src/services/investLensService.ts`: `PreparedSessionInput`에 `reportText?: string` 추가, `startLearningTurn`가 `callBeginnerStockCoach` 호출 시 전달.
+- `src/web/server.ts`: `/api/learning/start` 요청 페이로드 파싱용 로컬 타입에 `reportText?: string` 추가, 파싱 값을 `input.reportText`로 전달해 `startLearningTurn`에 넘김.
+- `src/web/app.js`: `paintWorkspaceCenter`에 textarea(`id="wsReportText"`) 추가, `bindWorkspaceEvents`의 `wsStartBtn` 클릭 핸들러에서 그 값을 `reportText`로 전송(비었으면 `undefined`).
+- `npm test`(`tsc --noEmit && tsx goldenPath.test.ts`) 통과 확인.
+- 서버 띄운 뒤 curl 비교: reportText 없음 → 기존 fixture 경로(`fixture.status: unverified_mock`, 시장 장면 기반 코치 응답); reportText 있음 → `extractInvestmentDataPool`이 리포트 텍스트를 실제 추출해 코치 응답에 반영(수치/컨센서스 직접 언급).
+- 서버 프로세스 kill 후 ps/lsof로 포트 3000 리스닝 및 tsx 서버 프로세스 미잔류 확인.
+- 레거시 화면(`renderThemes`/`renderScene`/`renderLearning`/`renderDecision`/`startLearning`) 미수정(diff로 확인).
 
 - `src/services/sessionManager.ts`의 `createLearningSession()`에서 `session` 객체 생성 시 `fixtureStatus: input.fixtureStatus` 추가.
 - `src/fixtures/seed.ts`의 세 시드 세션(tesla/vti/samsung) 각각에 `fixtureStatus: null` 추가 (과거 데이터라 원본 fixture 상태 모름).

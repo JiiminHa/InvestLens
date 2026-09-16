@@ -140,8 +140,10 @@ function buildUserPrompt(
       parts.push("- 참고 숫자/정보: " + marketFixture.numbers);
     }
   }
-  if (marketFixture.status === "unverified_mock") {
+  if (!dataPool && marketFixture.status === "unverified_mock") {
     parts.push("- 참고: 이 장면은 wiring 테스트용 미검증 목업이다. 현재 턴에서는 장면 자체가 아니라 코칭 구조를 확인하는 데 집중해라.");
+  } else if (dataPool) {
+    parts.push("- 참고: 위 데이터 포인트는 사용자가 제공한 실제 기업 리포트에서 추출한 것이다. 이 데이터에 근거해 코칭하고, 풀에 없는 숫자는 만들어내지 마라.");
   }
   parts.push("");
   parts.push(pastContextBlock);
