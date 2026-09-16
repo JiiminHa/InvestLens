@@ -36,6 +36,13 @@
 
 ## 로그
 
+### 2026-09-16 — 결정 선택지를 라디오에서 칩 버튼으로 변경
+
+- `public/app.js`: `paintWorkspaceRight`의 결정 선택지(투자함/투자하지 않음/공부만 함)를 `<input type="radio">`에서 `<button class="ws-chip" data-decision="...">`로 변경. `bindWorkspaceEvents`에서 `document.querySelector('input[name="wsDecision"]:checked')` 패턴을 제거하고 `selectedDecision` 클로저 변수 + 클릭 시 `ws-chip-selected` 배타적 토글로 대체. `updateCompleteButton`과 완료 버튼 핸들러 모두 `selectedDecision` 기준으로 통일.
+- `public/styles.css`: 기존 `.ws-chip` 스타일 재사용, `.ws-chip.ws-chip-selected` 선택 상태 스타일만 5줄 추가.
+- `npm test` 통과 확인. 서버 프로세스 미잔류 확인.
+- 커밋은 사용자가 직접 진행.
+
 ### 2026-09-16 — 리포트 데이터 풀을 세션 전체에 유지 — 완료 요약까지 반영
 
 - `src/coach/coachService.ts`: `buildSummaryUserPrompt`에서 dataPool이 있으면 "- 시장 장면: ..." 줄을 빼고 데이터 풀 섹션만 유지. `callBeginnerStockCoachSummary`의 finalMessage를 dataPool 기준 분기 — 있으면 "정리하면, 이번 {companyId} 장면은 사용자가 제공한 리포트에서 추출한 아래 데이터를 기준으로 봤다.\n" + dataPool, 없으면 기존 mock 장면 문장 유지.

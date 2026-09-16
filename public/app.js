@@ -383,7 +383,9 @@ function paintWorkspaceRight(right) {
         <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea><div class="ws-field-hint">이 장면을 어떻게 봤는지 내 문장으로 적어보세요.</div></label>
         <div class="ws-decision-hint">지금 시점의 결정을 고르세요. 실제 투자 여부와 무관합니다.</div>
         <div class="ws-decision-options" id="wsDecisions">
-          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) => `<label class="ws-decision-option"><input type="radio" name="wsDecision" value="${decision}">${decision}</label>`).join("")}
+          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) =>
+            `<button type="button" class="ws-chip" data-decision="${escapeHtml(decision)}">${escapeHtml(decision)}</button>`
+          ).join("")}
         </div>
         <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
         <button class="ws-btn ws-btn-ghost" id="wsCompletionCancel" type="button">닫기</button>
@@ -517,21 +519,28 @@ function bindWorkspaceEvents(recent) {
   const judgment = $id("wsJudgment");
   const completeButton = $id("wsCompleteBtn");
   if (judgment && completeButton) {
+    let selectedDecision = null;
     const updateCompleteButton = () => {
-      const decision = document.querySelector('input[name="wsDecision"]:checked');
-      completeButton.disabled = !judgment.value.trim() || !decision;
+      completeButton.disabled = !judgment.value.trim() || !selectedDecision;
     };
     judgment.addEventListener("input", updateCompleteButton);
-    document.querySelectorAll('input[name="wsDecision"]').forEach((radio) => radio.addEventListener("change", updateCompleteButton));
+    document.querySelectorAll(".ws-chip[data-decision]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".ws-chip[data-decision]").forEach((c) => {
+          c.classList.toggle("ws-chip-selected", c === chip);
+        });
+        selectedDecision = chip.dataset.decision;
+        updateCompleteButton();
+      });
+    });
     completeButton.addEventListener("click", async () => {
-      const decision = document.querySelector('input[name="wsDecision"]:checked')?.value;
-      if (!decision || !judgment.value.trim()) return;
+      if (!selectedDecision || !judgment.value.trim()) return;
       completeButton.disabled = true;
       completeButton.textContent = "저장 중…";
       try {
         const result = await postJSON("/api/learning/complete", {
           sessionId: state.currentSession.sessionId, userId: "demo_user", companyId: state.selectedCompany.id,
-          themeId: state.selectedTheme.id, userJudgment: judgment.value.trim(), userDecision: decision,
+          themeId: state.selectedTheme.id, userJudgment: judgment.value.trim(), userDecision: selectedDecision,
         });
         state.phase = "completed";
         state.summary = result.summary;
