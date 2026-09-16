@@ -88,10 +88,10 @@
 - 세션 2: server.ts에 dotenv/config 추가 + serveFile 조건 수정(`aaa7115`). paintWorkspaceRight/bindWorkspaceEvents를 turns 기반 채팅 렌더링으로 재작성(`d3b85d1`). curl로 4턴 검증, readyToComplete 계속 false 발견.
 - 세션 3~5 (SKILL.md 다이어트, 여러 차례): 편집 메모 삭제, "실제 시장 사용"+"데이터 검증 규칙" 통합, 중복 보조 규칙 제거, 후보 선정 이유·발화 예시 축소. 199줄→72줄, 핵심 3규칙·렌즈 4개는 유지. PR #8로 커밋 후 머지.
 
-### 2026-09-16 — 최종 확인 + README 작성 (chore/final-check)
+### 2026-09-16 — 확인·정리 세션 (chore/vercel-deploy, 새 기능 없음)
 
-- npm test 통과 확인 (golden path 5단계 모두 통과, 고침 없음).
-- 서버 실행 후 curl로 두 흐름 완주 확인: (a) 리포트 없이 → mock 배지·footer 미검증 안내 정상 표시, 완료 요약에 mock 장면 문장 포함; (b) 리포트 붙여넣고 → 데이터 풀 1회 추출 후 세션 전체 사용, 완료 요약에 리포트 숫자 반영, mock 문장 미포함.
-- 레포 루트에 README.md 새로 작성 (실행 방법, 핵심 흐름, 리포트 붙여넣기 동작, 알려진 한계). 과장 없이 실제 동작 범위만 기술.
-- 변경 파일 2개(README.md, docs/handoff.md), 기능 코드 미수정.
-- 레거시 함수(renderThemes/renderScene/renderLearning/renderDecision/startLearning) 및 ORIGINAL_SKILL.md 미수정(diff 확인).
+- `npm test` 통과 확인 (golden path 5단계, 고침 없음).
+- 서버 재시작 후 두 흐름 완주 확인: (a) 리포트 없이 → mock 배지·예시 장면 안내 정상, 완료 요약에 mock 장면 문장 포함; (b) 리포트 붙여넣고 → 학습 시작 성공 후 예시 장면 안내 사라지고, 완료 요약 finalMessage에 리포트 추출 데이터(450억/380억/72% 등) 포함, mock 문장 미포함.
+- 확인 결과 기록: 코치 응답이 물음표를 포함하면 `readyToComplete: false`로 남아 답변 2회만으로는 오른쪽 완료 패널이 자동 열리지 않음. 다만 "판단 정리하고 끝내기"는 `readyToComplete`와 무관하게 항상 노출되어 있어 사용자가 수동으로 완료 진입 가능(이 동작은 과거부터 있었고 이번 세션에서 수정하지 않음).
+- README.md를 현재 화면 구성에 맞게 업데이트: 왼쪽(테마/과거 노트/렌즈), 가운데(대화·시장 장면·리포트 입력·답변), 오른쪽(코치 패널·판단 정리·완료)으로 분리해 기술, 과장 없이 실제 동작 범위만 기재.
+- 변경 파일: README.md, docs/handoff.md. 기능 코드 미수정. 레거시 함수 및 ORIGINAL_SKILL.md 미수정.
