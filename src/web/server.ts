@@ -14,7 +14,7 @@ import { lensName } from "../domain/constants";
 import { DecisionAction } from "../domain/types";
 import { startLearningTurn, completeLearning, respond } from "../services/investLensService";
 
-const WEB_ROOT = process.cwd();
+const WEB_ROOT = join(process.cwd(), "public");
 
 seedStore(createSeedSessions());
 
@@ -49,19 +49,8 @@ function serveFile(res: http.ServerResponse, path: string) {
     notFound(res);
     return;
   }
-  let content = readFileSync(full, "utf8");
-  if (path.endsWith("index.html")) {
-    const isMock = !process.env.UPSTAGE_API_KEY;
-    const envMarker = isMock
-      ? `<script>window.__COACH_ENV="mock"</script>`
-      : `<script>window.__COACH_ENV="real"</script>`;
-    content = content.replace(
-      /<script\b/,
-      envMarker + "<script",
-    );
-  }
   res.writeHead(200, { "Content-Type": guessMime(path) });
-  res.end(content);
+  res.end(readFileSync(full, "utf8"));
 }
 
 function guessMime(path: string): string {
@@ -74,26 +63,33 @@ function guessMime(path: string): string {
   return "application/octet-stream";
 }
 
-const server = http.createServer(async (req, res) => {
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+
+export const requestHandler = async (req: http.IncomingMessage, res: http.ServerResponse) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname;
 
-  if (path === "/health") {
-    json(res, { ok: true, time: new Date().toISOString() });
+  if (path === "/api/health") {
+    const upstageApiKeySet = Boolean(process.env.UPSTAGE_API_KEY);
+    json(res, {
+      ok: true,
+      time: new Date().toISOString(),
+      upstageApiKeySet,
+    });
     return;
   }
 
   // 정적 파일
   if (path === "/" || path === "/index.html") {
-    serveFile(res, "src/web/index.html");
+    serveFile(res, "index.html");
     return;
   }
   if (path === "/app.js") {
-    serveFile(res, "src/web/app.js");
+    serveFile(res, "app.js");
     return;
   }
   if (path === "/styles.css") {
-    serveFile(res, "src/web/styles.css");
+    serveFile(res, "styles.css");
     return;
   }
 
@@ -343,11 +339,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   notFound(res);
-});
+};
 
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
-server.listen(PORT, () => {
-  console.log(`InvestLens UI 서버 시작: http://localhost:${PORT}`);
-  console.log(`  - 테마/학습 API: /api/*`);
-  console.log(`  - 프론트: http://localhost:${PORT}/`);
-});
+const server = http.createServer(requestHandler);
+
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`InvestLens UI 서버 시작: http://localhost:${PORT}`);
+    console.log(`  - 테마/학습 API: /api/*`);
+    console.log(`  - 프론트: http://localhost:${PORT}/`);
+  });
+}
