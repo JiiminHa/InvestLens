@@ -2,6 +2,10 @@
 
 세션 시작 시 이 문서를 먼저 읽는다. 세션 종료 시 "이번에 뭘 바꿨는지 / 다음 세션이 뭘 해야 하는지"를 5줄 이내로 아래 로그에 추가한다. 위에서부터 최신순으로 쌓는다.
 
+## 끝낸 것 (이번 세션)
+
+1. 테마 전환 시 reportUsed 초기화 누락 수정 (`dbc0aa8`) — `data-ws-theme` 클릭 핸들러에서 `state.fixture = null;` 아래 `state.reportUsed = false;` 추가. 리포트로 학습한 뒤 다른 테마를 골라도 reportUsed가 true로 남아 mock 안내가 계속 숨겨지던 문제 해결. 3파일 변경, 22줄 추가, npm test 통과 확인 후 커밋.
+
 ## 끝난 것
 
 1. 로깅 + 죽은 코드 정리 (`ce64d8b`) — mock import 제거, 콘솔 로깅, 타입 에러 정리, golden path 통과
