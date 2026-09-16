@@ -412,6 +412,38 @@ function paintWorkspaceRight(right) {
   `;
 }
 
+// 서버리스에서는 완료 요청과 노트 목록 요청이 다른 인스턴스로 갈 수 있어,
+// 방금 완료한 학습이 목록에 빠질 수 있다. 빠졌다면 완료 응답으로 화면에 보충한다.
+function mergeCompletedNote(reconnection, completion) {
+  const data = reconnection ?? { recentSessions: [], lensStates: [] };
+  const sessionId = completion?.session?.id ?? state.currentSession?.sessionId;
+  const summary = completion?.summary;
+  if (!sessionId || !summary) return data;
+  const recentSessions = data.recentSessions ?? [];
+  if (!recentSessions.some((s) => s.sessionId === sessionId)) {
+    recentSessions.unshift({
+      sessionId,
+      companyId: state.selectedCompany?.id,
+      companyName: state.selectedCompany?.name ?? "",
+      coachLensUsedId: summary.coachLensUsedId,
+      lensName: summary.lensName,
+      lensStatus: summary.lensStatusAfter,
+      decisionAction: summary.decisionAction,
+      judgment: summary.judgment,
+      marketNumbers: state.fixture?.numbers ?? "",
+      turns: (state.currentSession?.turns ?? []).filter((t) => t.role === "coach" || t.role === "user"),
+    });
+  }
+  const lensStates = data.lensStates ?? [];
+  const existing = lensStates.find((l) => l.lensId === summary.coachLensUsedId);
+  if (existing) {
+    existing.status = summary.lensStatusAfter;
+  } else if (summary.coachLensUsedId) {
+    lensStates.push({ lensId: summary.coachLensUsedId, lensName: summary.lensName, status: summary.lensStatusAfter, lastSeenAt: new Date().toISOString() });
+  }
+  return { ...data, recentSessions, lensStates };
+}
+
 async function sendAnswer(text) {
   if (!text || !state.currentSession) return null;
   const sendAnswerBtn = $id("wsSendAnswerBtn");
@@ -436,11 +468,13 @@ async function sendAnswer(text) {
     const result = await postJSON("/api/learning/respond", {
       sessionId: state.currentSession.sessionId,
       userAnswer: text,
+      session: state.currentSession.serverSession,
     });
     state.currentSession = {
       ...state.currentSession,
       turns: result.turns ?? [],
       readyToComplete: result.readyToComplete === true,
+      serverSession: result.session ?? state.currentSession.serverSession,
     };
     if (userAnswerTextarea) userAnswerTextarea.value = "";
     paintWorkspace();
@@ -527,6 +561,8 @@ function bindWorkspaceEvents(recent) {
           { role: "coach", content: result.coachMessage, createdAt: new Date().toISOString() },
         ],
         readyToComplete: result.isQuestionTurn ? false : true,
+        // 서버리스에서 다음 요청이 다른 인스턴스로 가도 세션을 복원할 수 있게 보관한다.
+        serverSession: result.session,
       };
       state.fixture = result.fixture ?? state.fixture;
       paintWorkspace();
@@ -584,6 +620,7 @@ function bindWorkspaceEvents(recent) {
           sessionId: state.currentSession.sessionId, userId: "demo_user",
           companyId: state.selectedCompany.id, themeId: state.selectedTheme.id,
           userJudgment: judgment, userDecision: decision,
+          session: state.currentSession.serverSession,
         });
         // 완료 요약 말풍선은 centerCompletedChat이 state.finalMessage로 그린다.
         state.wrapUp = null;
@@ -591,7 +628,10 @@ function bindWorkspaceEvents(recent) {
         state.summary = result.summary;
         state.finalMessage = result.finalMessage;
         state.selectedPastSession = null;
-        state.reconnectionData = await getJSON("/api/learning/reconnection?userId=demo_user");
+        state.reconnectionData = mergeCompletedNote(
+          await getJSON("/api/learning/reconnection?userId=demo_user"),
+          result,
+        );
         paintWorkspace();
       } catch (err) {
         showError($id("app"), "학습 완료 중 오류가 발생했습니다.", err);

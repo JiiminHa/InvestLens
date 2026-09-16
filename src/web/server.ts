@@ -5,7 +5,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildPastLearningContext } from "../services/learningContextBuilder";
-import { seedStore, getSessionById } from "../storage/memoryStore";
+import { seedStore, getSessionById, saveSession } from "../storage/memoryStore";
+import type { LearningSession } from "../domain/types";
 import { createSeedSessions } from "../fixtures/seed";
 import { MARKET_SCENE_FIXTURES } from "../fixtures/marketSceneFixtures";
 import { THEMES, companiesForTheme } from "../domain/themes";
@@ -37,6 +38,18 @@ function json(res: http.ServerResponse, data: unknown, status = 200) {
 
 function badRequest(res: http.ServerResponse, message: string) {
   json(res, { error: message }, 400);
+}
+
+// 서버리스 환경에서는 요청마다 다른 인스턴스가 받을 수 있어, 학습 시작 때 저장한 세션이
+// 다음 요청의 메모리에 없을 수 있다. 클라이언트가 직전 응답으로 받은 세션 스냅샷을 돌려보내면
+// 메모리에 세션이 없을 때만 그 스냅샷으로 복원한다.
+function restoreSessionIfMissing(sessionId: string, snapshot: unknown) {
+  if (getSessionById(sessionId)) return;
+  if (!snapshot || typeof snapshot !== "object") return;
+  const session = snapshot as LearningSession;
+  if (session.id !== sessionId || !Array.isArray(session.turns)) return;
+  saveSession(session);
+  console.log(`[API] 세션 스냅샷으로 복원 — sessionId=${sessionId}`);
 }
 
 function errorDetail(error: unknown): string {
@@ -210,6 +223,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
 
     json(res, {
       sessionId: turn.session.id,
+      session: turn.session,
       coachMessage: turn.coachMessage,
       isQuestionTurn: turn.isQuestionTurn,
       fixture: {
@@ -226,7 +240,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
 
   if (req.method === "POST" && path === "/api/learning/respond") {
     const body = await readBody(req);
-    let payload: { sessionId?: string; userAnswer?: string; };
+    let payload: { sessionId?: string; userAnswer?: string; session?: unknown };
     try {
       payload = JSON.parse(body);
     } catch {
@@ -245,6 +259,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
     console.log(`[API] POST /api/learning/respond 요청 시작 — sessionId=${sessionId}`);
     let result;
     try {
+      restoreSessionIfMissing(sessionId, payload.session);
       result = await respond(sessionId, userAnswer);
     } catch (error: any) {
       if (error instanceof Error && error.message.includes("세션을 찾을 수 없습니다")) {
@@ -258,6 +273,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
 
     json(res, {
       sessionId: result.session.id,
+      session: result.session,
       coachMessage: result.coachMessage,
       isQuestionTurn: result.isQuestionTurn,
       readyToComplete: result.readyToComplete,
@@ -272,6 +288,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
     const body = await readBody(req);
     let payload: {
       sessionId?: string;
+      session?: unknown;
       userId?: string;
       companyId?: string;
       themeId?: string;
@@ -320,6 +337,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
     console.log(`[API] POST /api/learning/complete 요청 시작 — sessionId=${sessionId} companyId=${companyId}`);
     let result;
     try {
+      restoreSessionIfMissing(sessionId, payload.session);
       result = await completeLearning(
         sessionId,
         pastContext,
