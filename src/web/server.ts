@@ -146,6 +146,7 @@ const server = http.createServer(async (req, res) => {
       userId?: string;
       themeId?: string;
       companyId?: string;
+      reportText?: string;
     };
     try {
       payload = JSON.parse(body);
@@ -157,6 +158,7 @@ const server = http.createServer(async (req, res) => {
     const userId = payload.userId ?? "demo_user";
     const themeId = payload.themeId;
     const companyId = payload.companyId;
+    const reportText = payload.reportText;
     if (!themeId || !companyId) {
       badRequest(res, "themeId와 companyId가 필요합니다");
       return;
@@ -183,6 +185,7 @@ const server = http.createServer(async (req, res) => {
       marketNumbers: fixture.numbers,
       pastContext,
       fixture,
+      reportText,
     };
 
     let turn;
