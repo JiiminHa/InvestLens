@@ -6,7 +6,7 @@ import {
   getSessionById,
   saveSession,
 } from "./sessionManager";
-import { callBeginnerStockCoach, callBeginnerStockCoachSummary } from "../coach/coachService";
+import { callBeginnerStockCoach, callBeginnerStockCoachSummary, extractInvestmentDataPool } from "../coach/coachService";
 import { buildPastLearningContext } from "../services/learningContextBuilder";
 
 export interface PreparedSessionInput {
@@ -46,12 +46,21 @@ export async function startLearningTurn(
   coachCall?: CoachTurnCall
 ): Promise<LearningTurnResult> {
   console.log("[investLensService] startLearningTurn 시작 — userId=" + input.userId + " companyId=" + input.companyId);
+
+  let dataPool: string | undefined;
+  if (input.reportText) {
+    console.log("[investLensService] startLearningTurn: 리포트 데이터 추출 시작");
+    dataPool = await extractInvestmentDataPool(input.reportText);
+    console.log("[investLensService] startLearningTurn: 리포트 데이터 추출 완료 — 데이터 풀 길이:" + dataPool.length);
+  }
+
   const session = createLearningSession({
     userId: input.userId,
     companyId: input.companyId,
     marketScene: input.marketScene,
     marketNumbers: input.marketNumbers,
     fixtureStatus: input.fixture.status,
+    dataPool: dataPool ?? null,
   });
 
   const effectiveCoachCall = coachCall ?? callBeginnerStockCoach;
@@ -62,7 +71,7 @@ export async function startLearningTurn(
       session,
       pastLearningContext: input.pastContext,
       marketFixture: input.fixture,
-      reportText: input.reportText,
+      dataPool,
     });
   } catch (error) {
     saveSession({
@@ -118,6 +127,7 @@ export async function completeLearning(
         session: existingSession,
         pastLearningContext: pastContext,
         marketFixture: fixture,
+        dataPool: existingSession.dataPool ?? undefined,
       },
       userJudgment,
       userDecision
@@ -144,25 +154,43 @@ export async function completeLearning(
   };
 
   const coachLensName = overriddenSummary.lensName;
-  const finalMessage =
-    "정리하면, 이번 " +
-    existingSession.companyId +
-    " 장면은 " +
-    fixture.scene +
-    "\n\n" +
-    "사용한 렌즈: " +
-    coachLensName +
-    "\n" +
-    "판단: " +
-    overriddenSummary.judgment +
-    "\n" +
-    "결정: " +
-    overriddenSummary.decisionAction +
-    "\n\n" +
-    "과거 학습에서 다룬 \"" +
-    coachLensName +
-    "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
-    "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.";
+  const finalMessage = existingSession.dataPool
+    ? "정리하면, 이번 " +
+      existingSession.companyId +
+      " 장면은 사용자가 제공한 리포트에서 추출한 아래 데이터를 기준으로 봤다.\n" +
+      existingSession.dataPool +
+      "\n\n" +
+      "사용한 렌즈: " +
+      coachLensName +
+      "\n" +
+      "판단: " +
+      overriddenSummary.judgment +
+      "\n" +
+      "결정: " +
+      overriddenSummary.decisionAction +
+      "\n\n" +
+      "과거 학습에서 다룬 \"" +
+      coachLensName +
+      "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
+      "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라."
+    : "정리하면, 이번 " +
+      existingSession.companyId +
+      " 장면은 " +
+      fixture.scene +
+      "\n\n" +
+      "사용한 렌즈: " +
+      coachLensName +
+      "\n" +
+      "판단: " +
+      overriddenSummary.judgment +
+      "\n" +
+      "결정: " +
+      overriddenSummary.decisionAction +
+      "\n\n" +
+      "과거 학습에서 다룬 \"" +
+      coachLensName +
+      "\"을 이번 장면에도 적용할 수 있는지 확인했다.\n" +
+      "다음 학습으로 넘어가기 전에, 투자 일지와 knowledge graph에서 이 연결을 확인해 보라.";
 
   const completed = completeSessionWithSummary(
     sessionId,
@@ -216,6 +244,7 @@ export async function respond(
       },
       userAnswer,
       conversationTurns: updatedAfterUser.turns,
+      dataPool: existingSession.dataPool ?? undefined,
     });
   } catch (error) {
     saveSession({

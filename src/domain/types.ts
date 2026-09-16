@@ -86,6 +86,8 @@ export interface LearningSession {
   createdAt: string;
   // 세션 시작 시 사용한 원본 fixture의 status (mock/검증 구분 보존용)
   fixtureStatus: FixtureStatus | null;
+  // startLearningTurn에서 추출한 리포트 데이터 풀 (세션당 1회만 추출)
+  dataPool?: string | null;
 }
 
 export interface SessionSummary {
