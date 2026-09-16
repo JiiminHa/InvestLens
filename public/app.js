@@ -6,15 +6,31 @@
 const $ = (sel, root) => (root ?? document).querySelector(sel);
 const $id = (id) => document.getElementById(id);
 
-const COACH_ENV = window.__COACH_ENV || "mock";
+let coachEnv = "mock";
 function coachEnvLabel() {
-  return COACH_ENV === "real" ? "실제 Solar 코치" : "개발 환경: mock 코치";
+  return coachEnv === "real" ? "실제 Solar 코치" : "개발 환경: mock 코치";
 }
 function coachEnvStatus() {
-  return COACH_ENV === "real" ? "실제 Solar 코치" : "개발용 mock";
+  return coachEnv === "real" ? "실제 Solar 코치" : "개발용 mock";
 }
 const coachBadgeEl = document.getElementById("coachBadge");
 if (coachBadgeEl) coachBadgeEl.textContent = coachEnvLabel();
+
+(async () => {
+  try {
+    const res = await fetch("/api/health");
+    if (res.ok) {
+      const data = await res.json();
+      coachEnv = data.upstageApiKeySet ? "real" : "mock";
+      const badge = document.getElementById("coachBadge");
+      if (badge) badge.textContent = coachEnvLabel();
+      const wsStatusEl = document.querySelector(".ws-status");
+      if (wsStatusEl) wsStatusEl.textContent = coachEnvStatus();
+    }
+  } catch (e) {
+    // fetch 실패 시 mock 유지
+  }
+})();
 
 const SCREENS = new Set([
   "workspace",
