@@ -4,6 +4,14 @@
  */
 
 const $ = (sel, root) => (root ?? document).querySelector(sel);
+
+// 코치 응답에 섞여 오는 최소한의 마크다운만 처리한다. escape 후에 변환하므로 안전하다.
+function renderCoachText(text) {
+  return escapeHtml(text)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^[-*]\s+/gm, "· ");
+}
 const $id = (id) => document.getElementById(id);
 
 let coachEnv = "mock";
@@ -144,17 +152,17 @@ function paintWorkspace() {
       <div class="ws-note-list">
         ${recent.length ? recent.map((session) => `
           <button type="button" class="ws-note-item ${state.selectedPastSession?.sessionId === session.sessionId ? "active" : ""}" data-ws-session="${escapeHtml(session.sessionId)}">
-            ${escapeHtml(session.companyName)} · ${escapeHtml(session.lensName)}
+            ${escapeHtml(session.companyName)} — ${escapeHtml(session.lensName)}로 판단 / ${escapeHtml(session.decisionAction ?? "공부만 함")}
           </button>
-        `).join("") : `<div class="ws-empty">저장된 노트가 없습니다.</div>`}
+        `).join("") : `<div class="ws-empty">아직 저장된 학습이 없습니다. 주제를 골라 첫 학습을 시작해보세요.</div>`}
       </div>
     </section>
     <section class="ws-section">
-      <h2 class="ws-section-title">학습한 렌즈</h2>
+      <h2 class="ws-section-title">학습한 투자 렌즈 (판단 기준)</h2>
       <div class="ws-lens-list">
         ${lenses.length ? lenses.map((lens) => `
           <div class="ws-lens-item"><span class="ws-lens-name">${escapeHtml(lens.lensName)}</span><span class="ws-lens-status">${escapeHtml(lens.status)}</span></div>
-        `).join("") : `<div class="ws-empty">학습한 렌즈가 없습니다.</div>`}
+        `).join("") : `<div class="ws-empty">아직 학습한 렌즈가 없습니다.</div>`}
       </div>
     </section>
   `;
@@ -170,7 +178,7 @@ function paintWorkspaceCenter(center, recent) {
     center.innerHTML = `
       <article class="ws-scene-card">
         <h2 class="ws-scene-title">${escapeHtml(note.companyName)} 학습 노트</h2>
-        <div class="ws-note-detail"><div class="ws-note-label">사용한 렌즈</div>${escapeHtml(note.lensName)}</div>
+        <div class="ws-note-detail"><div class="ws-note-label">사용한 렌즈 (판단 기준)</div>${escapeHtml(note.lensName)}</div>
         <div class="ws-note-detail"><div class="ws-note-label">판단</div>${escapeHtml(note.judgment)}</div>
         <div class="ws-note-detail"><div class="ws-note-label">결정</div>${escapeHtml(note.decisionAction)}</div>
       </article>
@@ -180,27 +188,85 @@ function paintWorkspaceCenter(center, recent) {
   }
 
   if (!state.selectedTheme) {
-    center.innerHTML = `<div class="ws-scene-card ws-empty">왼쪽에서 테마를 선택하면 현재 시장 장면을 확인할 수 있습니다.</div>`;
+    center.innerHTML = `<div class="ws-scene-card ws-empty">관심 주제를 고르면, 실제 시장 장면을 놓고 코치와 대화하며 스스로 판단해보는 학습 앱입니다.<div style="font-size:0.85em;color:var(--muted-foreground);margin-top:6px;">왼쪽에서 주제를 선택해 시작하세요.</div></div>`;
     return;
   }
 
+  // 학습 완료 상태: 기존처럼 시장 장면 카드 + 그래프
+  if (state.phase === "completed") {
+    const hasFixture = !!(state.fixture?.scene);
+    center.innerHTML = `
+      <article class="ws-scene-card">
+        <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+        <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+        ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+        ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+        ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+      </article>
+      ${workspaceGraph(recent)}
+    `;
+    return;
+  }
+
+  // 학습 시작 전: 시장 장면 카드 + 리포트 붙여넣기
+  if (!state.currentSession) {
+    const hasFixture = !!(state.fixture?.scene);
+    center.innerHTML = `
+      <article class="ws-scene-card">
+        <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+        <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+        ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+        ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+        ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+        <div class="ws-report-input">
+          <label class="ws-input-group">
+            <span class="ws-input-label">기업 리포트 붙여넣기</span>
+            <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
+          </label>
+          <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+        </div>
+      </article>
+    `;
+    return;
+  }
+
+  // 학습 중: 접을 수 있는 시장 장면 + 대화 목록 + 답변 입력창
+  const turns = state.currentSession.turns ?? [];
+  const chatHtml = turns.length
+    ? turns.map((turn) => {
+        const isCoach = turn.role === "coach";
+        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+          <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
+          <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
+        </div>`;
+      }).join("")
+    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
+
   const hasFixture = !!(state.fixture?.scene);
   center.innerHTML = `
-    <article class="ws-scene-card">
-      <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
-      <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
-      ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
-      ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
-      ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
-      <div class="ws-report-input">
-        <label class="ws-input-group">
-          <span class="ws-input-label">기업 리포트 붙여넣기</span>
-          <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
-        </label>
-        <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+    <div class="ws-center-layout">
+      <details class="ws-scene-details">
+        <summary class="ws-scene-summary">이번 시장 장면 보기</summary>
+        <div class="ws-scene-card">
+          <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
+          <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
+          ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
+          ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+          ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+        </div>
+      </details>
+      <div class="ws-chat-area">
+        <h2 class="ws-coach-heading">코치 질문</h2>
+        <div class="ws-chat-list" id="wsChatList">${chatHtml}</div>
+        <div class="ws-answer-input">
+          <label class="ws-input-group">
+            <span class="ws-input-label">내 답변</span>
+            <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
+          </label>
+          <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+        </div>
       </div>
-    </article>
-    ${state.phase === "completed" ? workspaceGraph(recent) : ""}
+    </div>
   `;
 }
 
@@ -235,7 +301,7 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `
       <div class="ws-summary"><h2 class="ws-summary-title">학습 완료</h2>
         <div class="ws-summary-grid">
-          <div class="ws-summary-item"><div class="ws-summary-label">렌즈</div><div class="ws-summary-value">${escapeHtml(summary.lensName ?? summary.lensUsed ?? "-")}</div></div>
+          <div class="ws-summary-item"><div class="ws-summary-label">렌즈 (판단 기준)</div><div class="ws-summary-value">${escapeHtml(summary.lensName ?? summary.lensUsed ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">상태</div><div class="ws-summary-value">${escapeHtml(summary.lensStatusAfter ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">판단</div><div class="ws-summary-value">${escapeHtml(summary.judgment ?? "-")}</div></div>
           <div class="ws-summary-item"><div class="ws-summary-label">결정</div><div class="ws-summary-value">${escapeHtml(summary.decisionAction ?? "-")}</div></div>
@@ -247,28 +313,15 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `<div class="ws-coach-panel"><h2 class="ws-coach-heading">코치</h2><div class="ws-coach-message placeholder">시장 장면을 확인한 뒤 학습을 시작하세요.</div><button class="ws-btn ws-btn-primary" id="wsStartBtn" ${state.fixture ? "" : "disabled"}>학습 시작</button></div>`;
     return;
   }
-  const turns = state.currentSession.turns ?? [];
   const readyToComplete = state.currentSession.readyToComplete === true;
-
-  const chatHtml = turns.length
-    ? turns.map((turn) => {
-        const isCoach = turn.role === "coach";
-        return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
-          <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
-          <div class="ws-chat-bubble">${escapeHtml(turn.content)}</div>
-        </div>`;
-      }).join("")
-    : `<div class="ws-coach-message placeholder">대화가 시작되면 여기에 코치의 질문이 표시됩니다.</div>`;
 
   right.innerHTML = `
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">코치 질문</h2>
-      <div class="ws-chat-list">${chatHtml}</div>
       <div class="ws-completion-bar">
         <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
           ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
         </button>
-        <span class="ws-mock-status" id="wsFixtureStatus"></span>
       </div>
       <div class="ws-completion-panel" id="wsCompletionPanel" hidden>
         <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea></label>
@@ -279,13 +332,10 @@ function paintWorkspaceRight(right) {
         <button class="ws-btn ws-btn-ghost" id="wsCompletionCancel" type="button">닫기</button>
       </div>
       ${!readyToComplete ? `
-        <label class="ws-input-group">
-          <span class="ws-input-label">내 답변</span>
-          <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 답변해 주세요."></textarea>
-        </label>
-        <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+        <div class="ws-coach-message placeholder">대화를 이어가세요. 답변을 보내고 코치의 피드백을 확인하세요.</div>
       ` : ""}
-    </div>`;}
+    </div>`;
+}
 
 function bindWorkspaceEvents(recent) {
   document.querySelectorAll("[data-ws-theme]").forEach((button) => button.addEventListener("click", async () => {
@@ -384,6 +434,8 @@ function bindWorkspaceEvents(recent) {
       };
       if (userAnswerTextarea) userAnswerTextarea.value = "";
       paintWorkspace();
+      const chatList = $id("wsChatList");
+      if (chatList) chatList.scrollTop = chatList.scrollHeight;
     } catch (err) {
       showError($id("app"), "코치 응답을 가져오지 못했습니다.", err);
     } finally {
@@ -425,8 +477,7 @@ function bindWorkspaceEvents(recent) {
   const completionToggle = $id("wsCompletionToggle");
   const completionPanel = $id("wsCompletionPanel");
   const completionCancel = $id("wsCompletionCancel");
-  const fixtureStatusEl = $id("wsFixtureStatus");
-  if (completionToggle && completionPanel && completionCancel && fixtureStatusEl) {
+  if (completionToggle && completionPanel && completionCancel) {
     completionToggle.addEventListener("click", () => {
       const open = !completionPanel.hasAttribute("hidden");
       completionPanel.toggleAttribute("hidden", open);
@@ -439,13 +490,6 @@ function bindWorkspaceEvents(recent) {
     if (state.currentSession?.readyToComplete === true) {
       completionPanel.toggleAttribute("hidden", false);
       completionToggle.textContent = "판단 정리하기";
-    }
-    const fixture = state.fixture;
-    if (fixture && fixture.status) {
-      const label = fixture.status === "unverified_mock" ? "예시 데이터" : "리포트 기반 데이터";
-      fixtureStatusEl.textContent = label;
-    } else {
-      fixtureStatusEl.textContent = "";
     }
   }
 }
@@ -849,7 +893,7 @@ function renderComplete(root) {
         </div>
         <div class="summary-grid">
           <div class="summary-item">
-            <span class="summary-label">사용한 렌즈</span>
+            <span class="summary-label">사용한 렌즈 (판단 기준)</span>
             <span class="summary-value">${escapeHtml(lensName)}</span>
           </div>
           <div class="summary-item">
@@ -960,7 +1004,7 @@ function renderReconnection(root) {
               <span class="session-status">${escapeHtml(s.status)}</span>
             </div>
             <div class="session-item-detail">
-              <span class="session-lens">사용한 렌즈: ${escapeHtml(s.lensName)}</span>
+              <span class="session-lens">사용한 렌즈 (판단 기준): ${escapeHtml(s.lensName)}</span>
               <span class="session-judgment">판단: ${escapeHtml(s.judgment)}</span>
               <span class="session-decision">결정: ${escapeHtml(s.decisionAction)}</span>
             </div>
@@ -973,7 +1017,7 @@ function renderReconnection(root) {
       if (lensStates.length) {
         html += `
           <div class="reconnection-section">
-            <h2>익힌 렌즈 상태</h2>
+            <h2>익힌 렌즈 상태 (판단 기준)</h2>
             <ul class="lens-list">
         `;
         for (const e of lensStates) {

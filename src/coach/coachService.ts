@@ -168,6 +168,7 @@ function buildUserPrompt(
   parts.push("- 종목을 대신 골라주거나 매수/매도 결론을 내리지 마라.");
   parts.push("- 확인되지 않은 숫자를 만들어내지 마라.");
   parts.push("- 한국어로 답하라.");
+  parts.push("- 5줄 이내, 300자 이내로 짧게 써라. 마크다운 장식(**, ##, 표)을 쓰지 마라.");
   parts.push("");
   parts.push("## 출력");
   parts.push("대화형 코칭 응답만 돌려줘. 끝에 판단 질문 하나를 넣어라.");

@@ -39,6 +39,10 @@ function badRequest(res: http.ServerResponse, message: string) {
   json(res, { error: message }, 400);
 }
 
+function errorDetail(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function notFound(res: http.ServerResponse) {
   json(res, { error: "not found" }, 404);
 }
@@ -190,7 +194,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
       turn = await startLearningTurn(input);
     } catch (error) {
       console.error("startLearningTurn error:", error);
-      json(res, { error: "코치 응답 중 오류가 발생했습니다" }, 502);
+      json(res, { error: "코치 응답 중 오류가 발생했습니다", detail: errorDetail(error) }, 502);
       return;
     }
 
@@ -238,7 +242,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
         return;
       }
       console.error("respond error:", error);
-      json(res, { error: "코치 응답 중 오류가 발생했습니다" }, 502);
+      json(res, { error: "코치 응답 중 오류가 발생했습니다", detail: errorDetail(error) }, 502);
       return;
     }
 
@@ -319,7 +323,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
         return;
       }
       console.error("completeLearning error:", error);
-      json(res, { error: "학습 완료 중 오류가 발생했습니다" }, 500);
+      json(res, { error: "학습 완료 중 오류가 발생했습니다", detail: errorDetail(error) }, 500);
       return;
     }
 
