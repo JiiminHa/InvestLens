@@ -103,6 +103,7 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
       themes: THEMES.map((t) => ({
         id: t.id,
         name: t.name,
+        description: t.description,
         companies: companiesForTheme(t.id).map((c) => ({ id: c, name: companyName(c) })),
       })),
     });
