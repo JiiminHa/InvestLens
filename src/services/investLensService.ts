@@ -16,6 +16,7 @@ export interface PreparedSessionInput {
   marketNumbers: string;
   pastContext: PastLearningContext;
   fixture: MarketSceneFixture;
+  reportText?: string;
 }
 
 export interface LearningTurnResult {
@@ -61,6 +62,7 @@ export async function startLearningTurn(
       session,
       pastLearningContext: input.pastContext,
       marketFixture: input.fixture,
+      reportText: input.reportText,
     });
   } catch (error) {
     saveSession({

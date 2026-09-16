@@ -167,14 +167,22 @@ function paintWorkspaceCenter(center, recent) {
     return;
   }
 
+  const hasFixture = !!(state.fixture?.scene);
   center.innerHTML = `
     <article class="ws-scene-card">
       <h2 class="ws-scene-title">${escapeHtml(state.selectedTheme.name)}</h2>
       <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
-      <div class="ws-scene-body">${escapeHtml(state.fixture?.scene ?? "시장 장면을 불러오는 중…")}</div>
+      ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
       ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
+      ${state.fixture?.mockNote ? `<div class="ws-mock-note"><strong>개발용 mock 데이터</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+      <div class="ws-report-input">
+        <label class="ws-input-group">
+          <span class="ws-input-label">기업 리포트 붙여넣기</span>
+          <textarea class="ws-textarea" id="wsReportText" placeholder="기업 리포트 텍스트를 여기에 붙여넣으세요. (선택사항)" rows="5"></textarea>
+        </label>
+        <div class="ws-report-note">입력하면 리포트에서 투자 코치가 쓸 데이터포인트만 자동 추출해 학습에 반영합니다. 입력하지 않으면 기존 시장 장면/수치 기반으로 진행됩니다.</div>
+      </div>
     </article>
-    ${state.fixture?.mockNote ? `<div class="ws-mock-note"><strong>개발용 mock 데이터</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
     ${state.phase === "completed" ? workspaceGraph(recent) : ""}
   `;
 }
@@ -317,7 +325,13 @@ function bindWorkspaceEvents(recent) {
     button.disabled = true;
     button.textContent = "시작하는 중…";
     try {
-      const result = await postJSON("/api/learning/start", { userId: "demo_user", themeId: state.selectedTheme.id, companyId: state.selectedCompany.id });
+      const reportText = ($id("wsReportText")?.value ?? "").trim();
+      const result = await postJSON("/api/learning/start", {
+        userId: "demo_user",
+        themeId: state.selectedTheme.id,
+        companyId: state.selectedCompany.id,
+        reportText: reportText || undefined,
+      });
       state.currentSession = {
         sessionId: result.sessionId,
         turns: [
