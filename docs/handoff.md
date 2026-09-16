@@ -87,3 +87,11 @@
 - 세션 1: server.ts의 mockCoachTurn/mockCoachSummary import 제거, mock/real 배지 환경변수 연동(당시 조건 버그 있었음, 후속 수정됨), 콘솔 로깅. 타입 에러 정리(LearningSession import, readyToComplete 필드, MarketSceneFixture 중복 타입, seed.ts 필드, 죽은 server-coach-mock.ts 삭제)까지 `ce64d8b`로 커밋, npm test 통과.
 - 세션 2: server.ts에 dotenv/config 추가 + serveFile 조건 수정(`aaa7115`). paintWorkspaceRight/bindWorkspaceEvents를 turns 기반 채팅 렌더링으로 재작성(`d3b85d1`). curl로 4턴 검증, readyToComplete 계속 false 발견.
 - 세션 3~5 (SKILL.md 다이어트, 여러 차례): 편집 메모 삭제, "실제 시장 사용"+"데이터 검증 규칙" 통합, 중복 보조 규칙 제거, 후보 선정 이유·발화 예시 축소. 199줄→72줄, 핵심 3규칙·렌즈 4개는 유지. PR #8로 커밋 후 머지.
+
+### 2026-09-16 — 최종 확인 + README 작성 (chore/final-check)
+
+- npm test 통과 확인 (golden path 5단계 모두 통과, 고침 없음).
+- 서버 실행 후 curl로 두 흐름 완주 확인: (a) 리포트 없이 → mock 배지·footer 미검증 안내 정상 표시, 완료 요약에 mock 장면 문장 포함; (b) 리포트 붙여넣고 → 데이터 풀 1회 추출 후 세션 전체 사용, 완료 요약에 리포트 숫자 반영, mock 문장 미포함.
+- 레포 루트에 README.md 새로 작성 (실행 방법, 핵심 흐름, 리포트 붙여넣기 동작, 알려진 한계). 과장 없이 실제 동작 범위만 기술.
+- 변경 파일 2개(README.md, docs/handoff.md), 기능 코드 미수정.
+- 레거시 함수(renderThemes/renderScene/renderLearning/renderDecision/startLearning) 및 ORIGINAL_SKILL.md 미수정(diff 확인).
