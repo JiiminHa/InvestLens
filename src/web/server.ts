@@ -5,7 +5,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildPastLearningContext } from "../services/learningContextBuilder";
-import { seedStore } from "../storage/memoryStore";
+import { seedStore, getSessionById } from "../storage/memoryStore";
 import { createSeedSessions } from "../fixtures/seed";
 import { MARKET_SCENE_FIXTURES } from "../fixtures/marketSceneFixtures";
 import { THEMES, companiesForTheme } from "../domain/themes";
@@ -135,7 +135,16 @@ export const requestHandler = async (req: http.IncomingMessage, res: http.Server
       userId,
       sessions: [],
       lensStates,
-      recentSessions: pastContext.recentSessions,
+      // 과거 노트 상세 화면에서 그때의 수치와 대화를 보여주기 위해 원본 세션 필드를 덧붙인다.
+      // 코치 프롬프트용 PastLearningContext 타입은 건드리지 않는다.
+      recentSessions: pastContext.recentSessions.map((summary) => {
+        const full = getSessionById(summary.sessionId);
+        return {
+          ...summary,
+          marketNumbers: full?.marketNumbers ?? "",
+          turns: full?.turns ?? [],
+        };
+      }),
     });
     return;
   }
