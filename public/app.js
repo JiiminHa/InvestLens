@@ -58,6 +58,7 @@ let state = {
   selectedCompany: null,
   selectedPastSession: null,
   currentSession: null,
+  wrapUp: null,
   userCompletionOpen: false,
   themes: [],
   reconnectionData: null,
@@ -173,6 +174,25 @@ function paintWorkspace() {
   bindWorkspaceEvents(recent);
 }
 
+function centerCompletedChat(turns, recent) {
+  if (!turns || !turns.length) return "";
+  const summary = state.summary ?? {};
+  const finalMessage = state.finalMessage ?? "";
+  const turnsHtml = turns.map((turn) => {
+    const isCoach = turn.role === "coach";
+    return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}">
+        <div class="ws-chat-label">${isCoach ? "코치" : "나"}</div>
+        <div class="ws-chat-bubble">${isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content)}</div>
+      </div>`;
+  }).join("");
+  const finalHtml = finalMessage ? `<div class="ws-chat-turn coach">
+      <div class="ws-chat-label">코치</div>
+      <div class="ws-chat-bubble">${escapeHtml(finalMessage)}</div>
+    </div>` : "";
+  return `<div class="ws-coach-heading" style="margin:0 0 10px">학습 기록</div>
+    <div class="ws-chat-list">${turnsHtml}${finalHtml}</div>`;
+}
+
 function paintWorkspaceCenter(center, recent) {
   if (state.selectedPastSession) {
     const note = state.selectedPastSession;
@@ -223,6 +243,7 @@ function paintWorkspaceCenter(center, recent) {
         ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
         ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
       </article>
+      ${centerCompletedChat(state.currentSession?.turns ?? [], recent)}
       ${workspaceGraph(recent)}
     `;
     return;
@@ -272,18 +293,25 @@ function paintWorkspaceCenter(center, recent) {
       let bubbleContent = isCoach ? renderCoachText(turn.content) : escapeHtml(turn.content);
 
       let quickRepliesHtml = "";
-      if (isCoach && idx === lastCoachIndex && !hasUserAfterLastCoach && !isCompleted && choices.length) {
-        const filteredContent = splitChoices(turn.content).body;
-        const escapedChoices = choices.map(c => ({
-          key: c.key,
-          label: c.label,
-          escapedLabel: escapeHtml(c.key + ". " + c.label),
-        }));
-        const buttonsHtml = escapedChoices.map(c =>
-          `<button type="button" class="ws-chip" data-choice="${escapeHtml(c.key + ". " + c.label)}">${c.escapedLabel}</button>`
-        ).join("");
-        bubbleContent = isCoach ? renderCoachText(filteredContent) : escapeHtml(filteredContent);
-        quickRepliesHtml = `<div class="ws-quick-replies">${buttonsHtml}</div>`;
+      if (isCoach && idx === lastCoachIndex && !hasUserAfterLastCoach && !isCompleted) {
+        if (choices.length) {
+          const filteredContent = splitChoices(turn.content).body;
+          const escapedChoices = choices.map(c => ({
+            key: c.key,
+            label: c.label,
+            escapedLabel: escapeHtml(c.key + ". " + c.label),
+          }));
+          const buttonsHtml = escapedChoices.map(c =>
+            `<button type="button" class="ws-chip" data-choice="${escapeHtml(c.key + ". " + c.label)}">${c.escapedLabel}</button>`
+          ).join("");
+          bubbleContent = isCoach ? renderCoachText(filteredContent) : escapeHtml(filteredContent);
+          quickRepliesHtml = `<div class="ws-quick-replies">${buttonsHtml}</div>`;
+        } else if (state.wrapUp?.step === "decision") {
+          const decisionButtons = ["투자함", "투자하지 않음", "공부만 함"].map(d =>
+            `<button type="button" class="ws-chip" data-wrapup-decision="${escapeHtml(d)}">${escapeHtml(d)}</button>`
+          ).join("");
+          quickRepliesHtml = `<div class="ws-quick-replies">${decisionButtons}</div>`;
+        }
       }
 
       return `<div class="ws-chat-turn ${isCoach ? "coach" : "user"}${idx === lastCoachIndex && quickRepliesHtml ? " has-quick-replies" : ""}" data-turn-idx="${idx}">
@@ -297,6 +325,20 @@ function paintWorkspaceCenter(center, recent) {
   }
 
   const hasFixture = !!(state.fixture?.scene);
+  const hasCoachTurn = !!(state.currentSession?.turns ?? []).some((t) => t.role === "coach");
+  const isDecisionMode = state.wrapUp?.step === "decision";
+  const answerInputHtml = isDecisionMode
+    ? ""
+    : `<div class="ws-answer-input">
+        <label class="ws-input-group">
+          <span class="ws-input-label">내 답변</span>
+          <textarea class="ws-textarea" id="wsUserAnswer" placeholder="${state.wrapUp?.step === "judgment" ? "이 장면을 어떻게 봤는지 내 문장으로 적어보세요." : "코치의 질문에 자유롭게 답해보세요. 정답이 없어도 됩니다."}"></textarea>
+        </label>
+        <div class="ws-answer-input-actions">
+          ${state.wrapUp || !hasCoachTurn ? "" : `<button class="ws-btn ws-btn-ghost" id="wsWrapUpBtn">판단 정리하기</button>`}
+          <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
+        </div>
+      </div>`;
   center.innerHTML = `
     <div class="ws-center-layout">
       <details class="ws-scene-details">
@@ -312,13 +354,7 @@ function paintWorkspaceCenter(center, recent) {
       <div class="ws-chat-area">
         <h2 class="ws-coach-heading">코치와의 대화</h2>
         <div class="ws-chat-list" id="wsChatList">${chatHtml}</div>
-        <div class="ws-answer-input">
-          <label class="ws-input-group">
-            <span class="ws-input-label">내 답변</span>
-            <textarea class="ws-textarea" id="wsUserAnswer" placeholder="코치의 질문에 자유롭게 답해보세요. 정답이 없어도 됩니다."></textarea>
-          </label>
-          <button class="ws-btn ws-btn-primary" id="wsSendAnswerBtn">답변 보내기</button>
-        </div>
+        ${answerInputHtml}
       </div>
     </div>
   `;
@@ -368,32 +404,12 @@ function paintWorkspaceRight(right) {
     right.innerHTML = `<div class="ws-coach-panel"><h2 class="ws-coach-heading">코치</h2><div class="ws-coach-message placeholder">시장 장면을 확인한 뒤 학습을 시작하세요.</div><button class="ws-btn ws-btn-primary" id="wsStartBtn" ${state.fixture ? "" : "disabled"}>학습 시작</button></div>`;
     return;
   }
-  const readyToComplete = state.currentSession.readyToComplete === true;
-
   right.innerHTML = `
     <div class="ws-coach-panel">
       <h2 class="ws-coach-heading">판단 정리</h2>
-      ${!state.currentSession ? "" : `<div class="ws-learn-hint">대화를 충분히 나눴다면 아래 버튼으로 마무리하세요.</div>`}
-      <div class="ws-completion-bar">
-        <button class="ws-btn ws-btn-ghost ws-collapse-btn" id="wsCompletionToggle" type="button">
-          ${readyToComplete ? "판단 정리하기" : "판단 정리하고 끝내기"}
-        </button>
-      </div>
-      <div class="ws-completion-panel" id="wsCompletionPanel" hidden>
-        <label class="ws-input-group"><span class="ws-input-label">내 판단</span><textarea class="ws-textarea" id="wsJudgment" placeholder="이 장면을 어떻게 판단했나요?"></textarea><div class="ws-field-hint">이 장면을 어떻게 봤는지 내 문장으로 적어보세요.</div></label>
-        <div class="ws-decision-hint">지금 시점의 결정을 고르세요. 실제 투자 여부와 무관합니다.</div>
-        <div class="ws-decision-options" id="wsDecisions">
-          ${["투자함", "투자하지 않음", "공부만 함"].map((decision) =>
-            `<button type="button" class="ws-chip" data-decision="${escapeHtml(decision)}">${escapeHtml(decision)}</button>`
-          ).join("")}
-        </div>
-        <button class="ws-btn ws-btn-primary" id="wsCompleteBtn" disabled>저장 후 학습 완료</button>
-        <button class="ws-btn ws-btn-ghost" id="wsCompletionCancel" type="button">닫기</button>
-      </div>
-      ${!readyToComplete ? `
-        <div class="ws-coach-message placeholder">대화를 이어가세요. 답변을 보내고 코치의 피드백을 확인하세요.</div>
-      ` : ""}
-    </div>`;
+      <div class="ws-learn-hint">대화를 충분히 나눴다면 가운데 '판단 정리하기'를 눌러 코치와 마무리하세요.</div>
+    </div>
+  `;
 }
 
 async function sendAnswer(text) {
@@ -402,6 +418,21 @@ async function sendAnswer(text) {
   const userAnswerTextarea = $id("wsUserAnswer");
   if (sendAnswerBtn) { sendAnswerBtn.disabled = true; sendAnswerBtn.textContent = "답변 중…"; }
   try {
+    if (state.wrapUp?.step === "judgment") {
+      const judgment = text;
+      const userTurn = { role: "user", content: judgment, createdAt: new Date().toISOString() };
+      const coachTurn = { role: "coach", content: "지금 시점의 결정은 무엇인가요? 실제 투자 여부와는 무관합니다.", createdAt: new Date().toISOString() };
+      state.currentSession = {
+        ...state.currentSession,
+        turns: [...(state.currentSession.turns ?? []), userTurn, coachTurn],
+      };
+      state.wrapUp = { step: "decision", judgment };
+      if (userAnswerTextarea) userAnswerTextarea.value = "";
+      paintWorkspace();
+      const chatList = $id("wsChatList");
+      if (chatList) chatList.scrollTop = chatList.scrollHeight;
+      return null;
+    }
     const result = await postJSON("/api/learning/respond", {
       sessionId: state.currentSession.sessionId,
       userAnswer: text,
@@ -437,6 +468,7 @@ function bindWorkspaceEvents(recent) {
     state.phase = "learning";
     state.fixture = null;
     state.reportUsed = false;
+    state.wrapUp = null;
     if (window.matchMedia("(max-width: 760px)").matches) {
       state.leftSidebarOpen = false;
       syncWorkspacePanels();
@@ -476,6 +508,7 @@ function bindWorkspaceEvents(recent) {
   });
 
   $id("wsStartBtn")?.addEventListener("click", async (event) => {
+    state.wrapUp = null;
     const button = event.currentTarget;
     button.disabled = true;
     button.textContent = "시작하는 중…";
@@ -516,32 +549,44 @@ function bindWorkspaceEvents(recent) {
     });
   });
 
-  const judgment = $id("wsJudgment");
-  const completeButton = $id("wsCompleteBtn");
-  if (judgment && completeButton) {
-    let selectedDecision = null;
-    const updateCompleteButton = () => {
-      completeButton.disabled = !judgment.value.trim() || !selectedDecision;
+  // 판단 정리 시작: 서버를 부르지 않고 코치 로컬 턴만 추가한다.
+  $id("wsWrapUpBtn")?.addEventListener("click", () => {
+    if (!state.currentSession || state.wrapUp) return;
+    const coachTurn = {
+      role: "coach",
+      content: "좋아요. 지금까지 본 걸 바탕으로 내 판단을 한두 문장으로 정리해볼까요?",
+      createdAt: new Date().toISOString(),
     };
-    judgment.addEventListener("input", updateCompleteButton);
-    document.querySelectorAll(".ws-chip[data-decision]").forEach((chip) => {
-      chip.addEventListener("click", () => {
-        document.querySelectorAll(".ws-chip[data-decision]").forEach((c) => {
-          c.classList.toggle("ws-chip-selected", c === chip);
-        });
-        selectedDecision = chip.dataset.decision;
-        updateCompleteButton();
-      });
-    });
-    completeButton.addEventListener("click", async () => {
-      if (!selectedDecision || !judgment.value.trim()) return;
-      completeButton.disabled = true;
-      completeButton.textContent = "저장 중…";
+    state.currentSession = {
+      ...state.currentSession,
+      turns: [...(state.currentSession.turns ?? []), coachTurn],
+    };
+    state.wrapUp = { step: "judgment" };
+    paintWorkspace();
+    const chatList = $id("wsChatList");
+    if (chatList) chatList.scrollTop = chatList.scrollHeight;
+    $id("wsUserAnswer")?.focus();
+  });
+
+  // 대화 안의 결정 버튼: 판단 문장과 결정으로 학습 완료를 요청한다.
+  document.querySelectorAll(".ws-chip[data-wrapup-decision]").forEach((chip) => {
+    chip.addEventListener("click", async () => {
+      if (state.wrapUp?.step !== "decision" || !state.currentSession) return;
+      const decision = chip.dataset.wrapupDecision;
+      const judgment = state.wrapUp.judgment;
+      document.querySelectorAll(".ws-chip[data-wrapup-decision]").forEach((c) => c.setAttribute("disabled", ""));
+      state.currentSession = {
+        ...state.currentSession,
+        turns: [...(state.currentSession.turns ?? []), { role: "user", content: decision, createdAt: new Date().toISOString() }],
+      };
       try {
         const result = await postJSON("/api/learning/complete", {
-          sessionId: state.currentSession.sessionId, userId: "demo_user", companyId: state.selectedCompany.id,
-          themeId: state.selectedTheme.id, userJudgment: judgment.value.trim(), userDecision: selectedDecision,
+          sessionId: state.currentSession.sessionId, userId: "demo_user",
+          companyId: state.selectedCompany.id, themeId: state.selectedTheme.id,
+          userJudgment: judgment, userDecision: decision,
         });
+        // 완료 요약 말풍선은 centerCompletedChat이 state.finalMessage로 그린다.
+        state.wrapUp = null;
         state.phase = "completed";
         state.summary = result.summary;
         state.finalMessage = result.finalMessage;
@@ -552,26 +597,7 @@ function bindWorkspaceEvents(recent) {
         showError($id("app"), "학습 완료 중 오류가 발생했습니다.", err);
       }
     });
-  }
-
-  const completionToggle = $id("wsCompletionToggle");
-  const completionPanel = $id("wsCompletionPanel");
-  const completionCancel = $id("wsCompletionCancel");
-  if (completionToggle && completionPanel && completionCancel) {
-    completionToggle.addEventListener("click", () => {
-      const open = !completionPanel.hasAttribute("hidden");
-      completionPanel.toggleAttribute("hidden", open);
-      completionToggle.textContent = open ? (state.currentSession?.readyToComplete === true ? "판단 정리하기" : "판단 정리하고 끝내기") : "닫기";
-    });
-    completionCancel.addEventListener("click", () => {
-      completionPanel.setAttribute("hidden", "");
-      completionToggle.textContent = state.currentSession?.readyToComplete === true ? "판단 정리하기" : "판단 정리하고 끝내기";
-    });
-    if (state.currentSession?.readyToComplete === true) {
-      completionPanel.toggleAttribute("hidden", false);
-      completionToggle.textContent = "판단 정리하기";
-    }
-  }
+  });
 }
 
 function bindWorkspaceShellEvents() {

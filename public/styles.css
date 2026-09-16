@@ -1338,29 +1338,6 @@ body.ws-open .shell-main {
   box-shadow: 0 0 0 2px rgba(91, 63, 191, 0.13);
 }
 
-.ws-decision-options {
-  display: grid;
-  gap: 4px;
-}
-
-.ws-decision-option {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  color: var(--ws-text);
-  font-size: 12px;
-  line-height: 1.35;
-  cursor: pointer;
-}
-
-.ws-decision-option:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
 .ws-decision-option:has(input:checked) {
   border-color: rgba(91, 63, 191, 0.2);
   background: var(--ws-accent-soft);
@@ -1562,19 +1539,15 @@ body.ws-open .shell-main {
   line-height: 1.55;
 }
 
-.ws-field-hint {
-  margin-top: 6px;
-  color: var(--ws-muted);
-  font-size: 11px;
-  line-height: 1.5;
+.ws-answer-input-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  align-items: center;
 }
 
-.ws-decision-hint {
+.ws-field-hint {
   margin-top: 6px;
-  padding: 7px 9px;
-  border: 1px solid var(--ws-border);
-  border-radius: 5px;
-  background: var(--ws-surface-soft);
   color: var(--ws-muted);
   font-size: 11px;
   line-height: 1.5;
