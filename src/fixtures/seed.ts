@@ -22,6 +22,7 @@ export function createSeedSessions(): LearningSession[] {
       judgment: "시장 기대가 실제보다 앞서 있다고 봤다. 지금 판단은 보류하고 추가 확인을 하고 싶다.",
       referencedSessionIds: [],
       createdAt: nowISO(),
+      fixtureStatus: null,
     },
     {
       id: "sess_vti_01",
@@ -41,6 +42,7 @@ export function createSeedSessions(): LearningSession[] {
       judgment: "개별기업 집중보다 분산 노출을 우선하고 싶어서.",
       referencedSessionIds: [],
       createdAt: nowISO(),
+      fixtureStatus: null,
     },
     {
       id: "sess_samsung_01",
@@ -60,6 +62,7 @@ export function createSeedSessions(): LearningSession[] {
       judgment: "좋은 사업이지만 현재 가격에 기대가 얼마나 반영됐는지 추가 확인이 필요하다.",
       referencedSessionIds: [],
       createdAt: nowISO(),
+      fixtureStatus: null,
     },
   ];
 }

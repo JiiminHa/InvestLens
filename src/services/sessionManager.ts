@@ -1,5 +1,16 @@
-import { LearningSession, SessionSummary, LensId, LensStatus, DecisionAction, CompanyId } from "../domain/types";
-import { getSessionById, saveSession, upsertLensState } from "../storage/memoryStore";
+import {
+  LearningSession,
+  SessionSummary,
+  LensId,
+  LensStatus,
+  DecisionAction,
+  CompanyId,
+} from "../domain/types";
+import {
+  getSessionById,
+  saveSession,
+  upsertLensState,
+} from "../storage/memoryStore";
 import { nowISO } from "../domain/constants";
 
 export { getSessionById, saveSession };
@@ -9,9 +20,12 @@ export interface CreateSessionInput {
   companyId: CompanyId;
   marketScene: string;
   marketNumbers: string;
+  fixtureStatus: import("../domain/types").FixtureStatus;
 }
 
-export function createLearningSession(input: CreateSessionInput): LearningSession {
+export function createLearningSession(
+  input: CreateSessionInput,
+): LearningSession {
   const now = nowISO();
   const session: LearningSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -31,6 +45,7 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
     createdAt: now,
     turns: [],
     phase: "question",
+    fixtureStatus: input.fixtureStatus,
   };
   saveSession(session);
   return session;
@@ -39,7 +54,7 @@ export function createLearningSession(input: CreateSessionInput): LearningSessio
 export function completeSessionWithSummary(
   sessionId: string,
   summary: SessionSummary,
-  relatedPastSessionIds: string[] = []
+  relatedPastSessionIds: string[] = [],
 ): LearningSession {
   const existing = getSessionById(sessionId);
   if (!existing) throw new Error(`Session not found: ${sessionId}`);
