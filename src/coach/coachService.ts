@@ -33,7 +33,7 @@ const UPSTAGE_BASE_URL =
   process.env.UPSTAGE_BASE_URL || "https://api.upstage.ai/v1";
 
 async function callSolar(
-  messages: Array<{ role: "system" | "user"; content: string }>
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>
 ): Promise<string> {
   console.log("[coachService] callSolar 시작 — message 수:" + messages.length);
   if (!UPSTAGE_API_KEY) {
@@ -125,7 +125,8 @@ function buildPastContextBlock(pastLearningContext: PastLearningContext): string
     return (
       "## 과거 학습 맥락 (앱이 전달한 참고용)\n" +
       pastLines +
-      "\n\n위 기록은 앱이 건네준 참고용이며, 어떤 렌즈를 쓸지는 당신이 현재 시장 장면을 보고 직접 결정한다.\n"
+      "\n\n위 기록은 앱이 건네준 참고용이며, 어떤 렌즈를 쓸지는 당신이 현재 시장 장면을 보고 직접 결정한다.\n" +
+      "이번에 고른 렌즈를 위 기록에서 이미 써본 적이 있다면, 렌즈를 소개하는 문장에서 반드시 그 기업 이름을 넣어 한 문장으로 연결하라. 예: '지난번 Tesla 학습에서 써본 기대 vs 실제 렌즈를 이번 장면에 다시 적용해보자.' 기록에 없는 렌즈라면 연결 문장을 지어내지 마라.\n"
     );
   }
   return "## 과거 학습 맥락\n사용자가 아직 학습한 기록이 없다. 필요하면 새로운 개념을 처음부터 가르쳐라.\n";
@@ -167,6 +168,7 @@ function buildUserPrompt(
   parts.push("- 새 개념이면 먼저 가르치고, 배운 개념이면 사용자가 먼저 판단하게 하라.");
   parts.push("- 종목을 대신 골라주거나 매수/매도 결론을 내리지 마라.");
   parts.push("- 확인되지 않은 숫자를 만들어내지 마라.");
+  parts.push("- 대화가 이미 진행 중이면 장면과 렌즈를 처음부터 다시 소개하지 마라. 사용자의 마지막 답변에 대한 짧은 피드백으로 시작하고, 필요하면 숫자 하나만 더 짚은 뒤, 다음 판단 질문 하나로 끝내라.");
   parts.push("- 한국어로 답하라.");
   parts.push("- 5줄 이내, 300자 이내로 짧게 써라. 마크다운 장식(**, ##, 표)을 쓰지 마라.");
   parts.push("- 주어진 숫자 중 최소 두 개를 응답 안에 그대로 인용해라. 숫자 없이 추상적으로 묻지 마라.");
@@ -194,9 +196,16 @@ export async function callBeginnerStockCoach(
   const system = buildFirstTurnSystemPrompt();
   const user = buildUserPrompt(input.session, input.marketFixture, pastContextBlock, input.dataPool);
 
+  // 지금까지의 대화를 그대로 이어 붙인다. 이게 없으면 모델은 매 턴 첫 턴으로 착각한다.
+  const history = (input.conversationTurns ?? []).map((turn) => ({
+    role: turn.role === "coach" ? ("assistant" as const) : ("user" as const),
+    content: turn.content,
+  }));
+
   const content = await callSolar([
     { role: "system", content: system },
     { role: "user", content: user },
+    ...history,
   ]);
 
   const hasQuestion = /[?]/.test(content);
@@ -251,6 +260,15 @@ function buildSummaryUserPrompt(
     parts.push(dataPool);
     parts.push("");
   }
+  const recentTurns = (session.turns ?? []).slice(-6);
+  if (recentTurns.length > 0) {
+    parts.push("## 이번 세션 대화");
+    for (const turn of recentTurns) {
+      const speaker = turn.role === "coach" ? "코치" : "사용자";
+      parts.push("- " + speaker + ": " + turn.content.slice(0, 300));
+    }
+    parts.push("");
+  }
   parts.push("## 사용자 판단");
   parts.push("- 판단: " + userJudgment);
   parts.push("- 결정: " + userDecision);
@@ -258,7 +276,7 @@ function buildSummaryUserPrompt(
   parts.push("## 과거 학습 맥락");
 
   const pastLines = pastLearningContext.recentSessions.map((s) => {
-    return "- " + s.companyName + ": " + s.lensName +
+    return "- sessionId=" + s.sessionId + " / " + s.companyName + ": " + s.lensName +
       " (상태: " + s.lensStatus + ") / 판단: \"" + s.judgment + "\" / 결정: " + s.decisionAction;
   });
   parts.push(pastLines.join("\n"));
