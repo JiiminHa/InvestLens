@@ -8,10 +8,10 @@ const $id = (id) => document.getElementById(id);
 
 let coachEnv = "mock";
 function coachEnvLabel() {
-  return coachEnv === "real" ? "실제 Solar 코치" : "개발 환경: mock 코치";
+  return coachEnv === "real" ? "Solar Pro 코치 연결됨" : "코치 미연결 — 예시 응답";
 }
 function coachEnvStatus() {
-  return coachEnv === "real" ? "실제 Solar 코치" : "개발용 mock";
+  return coachEnv === "real" ? "Solar Pro 연결됨" : "코치 미연결";
 }
 const coachBadgeEl = document.getElementById("coachBadge");
 if (coachBadgeEl) coachBadgeEl.textContent = coachEnvLabel();
@@ -191,7 +191,7 @@ function paintWorkspaceCenter(center, recent) {
       <div class="ws-scene-meta">사례 기업: ${escapeHtml(state.selectedCompany?.name ?? "")}</div>
       ${hasFixture ? `<div class="ws-scene-body">${escapeHtml(state.fixture.scene)}</div>` : `<div class="ws-scene-body"><div class="loader">시장 장면을 불러오는 중…</div></div>`}
       ${state.fixture?.numbers ? `<div class="ws-scene-numbers"><strong>시장 수치</strong>${escapeHtml(state.fixture.numbers)}</div>` : ""}
-      ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>개발용 mock 데이터</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
+      ${state.fixture?.mockNote && !state.reportUsed ? `<div class="ws-mock-note"><strong>예시 장면</strong><br>${escapeHtml(state.fixture.mockNote)}</div>` : ""}
       <div class="ws-report-input">
         <label class="ws-input-group">
           <span class="ws-input-label">기업 리포트 붙여넣기</span>
@@ -442,7 +442,7 @@ function bindWorkspaceEvents(recent) {
     }
     const fixture = state.fixture;
     if (fixture && fixture.status) {
-      const label = fixture.status === "unverified_mock" ? "미검증(mock) 데이터" : "검증된 데이터";
+      const label = fixture.status === "unverified_mock" ? "예시 데이터" : "리포트 기반 데이터";
       fixtureStatusEl.textContent = label;
     } else {
       fixtureStatusEl.textContent = "";
@@ -581,7 +581,7 @@ function renderScene(root) {
       if (fixture.mockNote) {
         note.innerHTML = `
           <div class="mock-flag">
-            <span class="mock-flag-label">개발용 mock 데이터</span>
+            <span class="mock-flag-label">예시 장면</span>
             <span>${escapeHtml(fixture.mockNote)}</span>
           </div>
           ${fixture.note ? `<div class="scene-note">${escapeHtml(fixture.note)}</div>` : ""}
