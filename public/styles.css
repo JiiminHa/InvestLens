@@ -1300,6 +1300,11 @@ body.ws-open .shell-main {
   cursor: default;
 }
 
+.ws-chip.ws-chip-selected {
+  border-color: var(--ws-accent);
+  background: var(--ws-accent-soft);
+}
+
 .ws-input-group {
   display: grid;
   gap: 5px;
