@@ -3,6 +3,13 @@
  * 이번 MVP에서는 fixture 기반 시장 장면과 서버 mock coach만 사용한다.
  */
 
+const THEME_DESCRIPTIONS = {
+  ai_infra: "기대가 먼저 오르는 산업에서 실제 실적과의 간격을 본다",
+  ev_autonomous: "성장과 수익성이 엇갈릴 때 무엇을 먼저 볼지 연습한다",
+  semiconductor: "가격 사이클과 구조 변화가 겹친 장면을 구분한다",
+  diversified_etf: "분산이라 믿은 것이 실제로 분산인지 확인한다",
+};
+
 const $ = (sel, root) => (root ?? document).querySelector(sel);
 
 // 코치 응답에 섞여 오는 최소한의 마크다운만 처리한다. escape 후에 변환하므로 안전하다.
@@ -135,11 +142,14 @@ function paintWorkspace() {
 
   const recent = state.reconnectionData?.recentSessions ?? [];
   const lenses = state.reconnectionData?.lensStates ?? [];
+  const themesWithDescription = state.themes.map((theme) => {
+    return { ...theme, description: theme.description ?? THEME_DESCRIPTIONS[theme.id] ?? "" };
+  });
   left.innerHTML = `
     <section class="ws-section">
       <h2 class="ws-section-title">테마</h2>
       <div class="ws-theme-list">
-        ${state.themes.map((theme) => `
+        ${themesWithDescription.map((theme) => `
           <button type="button" class="ws-theme-item ${state.selectedTheme?.id === theme.id ? "active" : ""}" data-ws-theme="${escapeHtml(theme.id)}">
             ${escapeHtml(theme.name)}
             <div class="ws-theme-meta">${escapeHtml(theme.description)}</div>
