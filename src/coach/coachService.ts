@@ -209,6 +209,7 @@ export async function callBeginnerStockCoach(
 }
 
 function buildSummarySystemPrompt(): string {
+  const lensListLines = LENS_LIST.map((l) => `- ${l.id}: ${l.name}`).join("\n");
   return [
     "당신은 투자 학습 코치의 세션 종료 요약을 만드는 보조 채널이다.",
     "아래 규칙으로 JSON을 출력한다. 다른 텍스트는 넣지 마라.",
@@ -217,6 +218,9 @@ function buildSummarySystemPrompt(): string {
     "- lensUsed: 이번 세션에서 실제로 사용한 투자 렌즈.",
     "  과거 맥락에 같은 렌즈가 있고 현재 장면에도 맞으면 재사용으로 볼 수 있다.",
     " 과거 맥락에 없어도 현재 장면만으로 적절한 렌즈를 골라라.",
+    "- lensUsed는 반드시 아래 id 중 하나여야 한다. 목록에 없는 id는 쓰지 마라.",
+    lensListLines,
+    "",
     "- lensStatusAfter: 이번 세션에서 사용자가 그 렌즈를 적용했으면 '적용해봄', 이해하면 '이해함', 처음이면 '처음_봄'.",
     "- decisionAction: 사용자가 말한 decision을 그대로 써라.",
     "- judgment: 사용자가 말한 판단을 짧게 요약하라.",
@@ -274,10 +278,19 @@ const LENS_LIST = [
   { id: "risk_breaks_my_logic", name: "리스크 = 내 투자 논리를 깨뜨리는 조건" },
 ];
 
-function findLensInfo(lensUsed: string): { id: string; name: string } {
-  const found = LENS_LIST.find((l) => l.id === lensUsed);
-  if (found) return found;
-  return { id: "expect_vs_actual", name: "기대 vs 실제" };
+function findLensFromTurns(
+  turns: Array<{ role: "coach" | "user"; content: string; createdAt: string }>
+): string | null {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const turn = turns[i];
+    if (turn.role !== "coach") continue;
+    for (const lens of LENS_LIST) {
+      if (turn.content.includes(lens.name)) {
+        return lens.id;
+      }
+    }
+  }
+  return null;
 }
 
 function parseJsonFromContent(content: string): any {
@@ -318,8 +331,35 @@ export async function callBeginnerStockCoachSummary(
   ]);
 
   const parsed = parseJsonFromContent(content);
-  const lensUsed = parsed?.lensUsed || "expect_vs_actual";
-  const lensInfo = findLensInfo(lensUsed);
+
+  // (a) 파싱된 lensUsed가 유효 목록이면 그대로 사용
+  let lensUsed: string;
+  if (parsed && LENS_LIST.some((l) => l.id === parsed.lensUsed)) {
+    lensUsed = parsed.lensUsed;
+  } else {
+    // (b) 코치 발화에서 렌즈 이름을 거꾸로 훑는다
+    const found = findLensFromTurns(input.session.turns);
+    if (found) {
+      lensUsed = found;
+      console.warn(
+        "[coachService] summary의 lensUsed가 유효하지 않아 대화에서 보정 사용: 받은 값=" +
+          (parsed?.lensUsed || "(parse 실패)") +
+          ", 보정값=" +
+          lensUsed
+      );
+    } else {
+      // (c) 그래도 못 찾으면 기본값, 경고 남김
+      console.warn(
+        "[coachService] lensUsed를 판별하지 못해 기본값(expect_vs_actual) 사용. parsed:",
+        parsed ? JSON.stringify(parsed) : "parse 실패",
+        "content:",
+        content.slice(0, 300)
+      );
+      lensUsed = "expect_vs_actual";
+    }
+  }
+
+  const lensInfo = LENS_LIST.find((l) => l.id === lensUsed)!;
 
   const summary: SessionSummary = {
     coachLensUsedId: lensUsed as LensId,
