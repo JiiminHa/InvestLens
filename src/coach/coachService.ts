@@ -150,7 +150,7 @@ function buildUserPrompt(
     }
   }
   if (!dataPool && marketFixture.status === "unverified_mock") {
-    parts.push("- 참고: 이 장면은 wiring 테스트용 미검증 목업이다. 현재 턴에서는 장면 자체가 아니라 코칭 구조를 확인하는 데 집중해라.");
+    parts.push("- 참고: 위 장면과 숫자는 학습용 예시 시나리오다. 실제 최신 공시가 아니므로 사실로 단정하지는 말되, 이 숫자들을 그대로 써서 판단 연습을 시켜라.");
   } else if (dataPool) {
     parts.push("- 참고: 위 데이터 포인트는 사용자가 제공한 실제 기업 리포트에서 추출한 것이다. 이 데이터에 근거해 코칭하고, 풀에 없는 숫자는 만들어내지 마라.");
   }
@@ -169,6 +169,7 @@ function buildUserPrompt(
   parts.push("- 확인되지 않은 숫자를 만들어내지 마라.");
   parts.push("- 한국어로 답하라.");
   parts.push("- 5줄 이내, 300자 이내로 짧게 써라. 마크다운 장식(**, ##, 표)을 쓰지 마라.");
+  parts.push("- 주어진 숫자 중 최소 두 개를 응답 안에 그대로 인용해라. 숫자 없이 추상적으로 묻지 마라.");
   parts.push("");
   parts.push("## 출력");
   parts.push("대화형 코칭 응답만 돌려줘. 끝에 판단 질문 하나를 넣어라.");
